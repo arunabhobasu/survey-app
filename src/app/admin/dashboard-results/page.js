@@ -326,7 +326,12 @@ export default function AdminDashboard() {
                   const feedback = post.highlightedFeedback || post.openEndedFeedback || "No feedback provided.";
                   return (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem', width: '200px', fontWeight: 600, fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
+                      <td style={{ padding: '1rem', width: '200px', fontWeight: 600, fontFamily: 'monospace', color: 'var(--primary)' }}>
+                        {sid}
+                        {post.highlightedFeedback && (
+                          <div style={{ fontSize: '0.65rem', color: '#10b981', marginTop: '0.25rem' }}>(Analyzed)</div>
+                        )}
+                      </td>
                       <td style={{ padding: '1rem', lineHeight: '1.6' }}>
                         {feedback.split(/(\*\*.*?\*\*)/g).map((part, index) => {
                           if (part && part.startsWith('**') && part.endsWith('**')) {

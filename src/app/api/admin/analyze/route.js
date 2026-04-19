@@ -116,8 +116,9 @@ Return ONLY the modified text. Do not add any preamble or quotes.`;
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-haiku-20241022',
-          max_tokens: 500,
+          model: 'claude-haiku-4-5',
+          max_tokens: 800,
+          system: "You are a professional research assistant. Output ONLY the original text with key sentiment words wrapped in double asterisks. No preamble, no quotes.",
           messages: [{ role: 'user', content: prompt }]
         })
       });
