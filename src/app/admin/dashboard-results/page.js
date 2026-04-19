@@ -172,6 +172,56 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* MASTER PARTICIPANT TABLE */}
+      <section style={{ marginBottom: '3rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Master Participant Registry</h2>
+        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+              <tr>
+                <th style={{ padding: '1rem' }}>Study ID</th>
+                <th style={{ padding: '1rem' }}>Name</th>
+                <th style={{ padding: '1rem' }}>Registration Date</th>
+                <th style={{ padding: '1rem' }}>Progress</th>
+                <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {studyIds.map(sid => {
+                const count = Object.keys(studies[sid]).filter(k => k !== 'post-survey').length;
+                const main = studies[sid].traditional || studies[sid].chatbot || studies[sid]['ai-enhanced'] || {};
+                return (
+                  <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
+                    <td style={{ padding: '1rem' }}>{main.formData?.name || "Anonymous"}</td>
+                    <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{main.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
+                    <td style={{ padding: '1rem' }}>
+                      <span style={{ backgroundColor: count === 3 ? '#10b98120' : '#f59e0b20', color: count === 3 ? '#10b981' : '#f59e0b', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                        {count}/3 Interfaces Complete
+                      </span>
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                      <button 
+                        onClick={async () => {
+                          if(!confirm("Delete this entire study record?")) return;
+                          const batch = writeBatch(db);
+                          Object.values(studies[sid]).forEach(entry => batch.delete(doc(db, 'survey_responses', entry.id)));
+                          await batch.commit();
+                          fetchData();
+                        }}
+                        style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
         {['individual', 'quantitative', 'qualitative'].map(tab => (
