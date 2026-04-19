@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSurvey } from '../../context/SurveyContext';
 import { db } from '../../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -46,6 +47,7 @@ function LikertSlider({ label, name, value, onChange }) {
 }
 
 export default function PostSurvey() {
+  const { studyId } = useSurvey();
   const router = useRouter();
   const [formData, setFormData] = useState({
     rankFirst: '',
@@ -77,6 +79,7 @@ export default function PostSurvey() {
     try {
       await Promise.race([
         addDoc(collection(db, "survey_responses"), {
+          studyId,
           interface: 'post-survey',
           responses: formData,
           timestamp: serverTimestamp()

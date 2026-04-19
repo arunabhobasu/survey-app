@@ -7,7 +7,7 @@ import { db } from '../../../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function ChatbotInterface() {
-  const { currentPersona, markPersonaAsUsed } = useSurvey();
+  const { currentPersona, markPersonaAsUsed, studyId } = useSurvey();
   const router = useRouter();
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hello! I'm your intake assistant bot. To get started, could you please tell me your full name?" }
@@ -95,6 +95,7 @@ export default function ChatbotInterface() {
       
       await Promise.race([
         addDoc(collection(db, "survey_responses"), {
+          studyId,
           interface: 'chatbot',
           personaId: currentPersona.id,
           chatHistory: messages.map(m => ({ role: m.role, content: m.content })),

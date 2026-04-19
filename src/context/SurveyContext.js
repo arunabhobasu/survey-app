@@ -9,6 +9,12 @@ export function SurveyProvider({ children }) {
   const [availablePersonas, setAvailablePersonas] = useState([]);
   const [currentPersona, setCurrentPersona] = useState(null);
   const [usedPersonaIds, setUsedPersonaIds] = useState([]);
+  const [studyId, setStudyId] = useState(null);
+
+  useEffect(() => {
+    // Generate a unique study ID for this session
+    setStudyId(`study_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  }, []);
 
   // Initialize personas
   useEffect(() => {
@@ -34,7 +40,8 @@ export function SurveyProvider({ children }) {
       setCurrentPersona,
       usedPersonaIds,
       markPersonaAsUsed,
-      selectRandomPersona
+      selectRandomPersona,
+      studyId
     }}>
       {children}
     </SurveyContext.Provider>

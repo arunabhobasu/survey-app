@@ -10,7 +10,7 @@ import PainSlider from '../../../components/PainSlider';
 import SpeedDatePicker from '../../../components/SpeedDatePicker';
 
 export default function AIEnhancedForm() {
-  const { currentPersona, markPersonaAsUsed } = useSurvey();
+  const { currentPersona, markPersonaAsUsed, studyId } = useSurvey();
   const router = useRouter();
   const [startTime, setStartTime] = useState(null);
   const [aiUsageCount, setAiUsageCount] = useState(0);
@@ -64,6 +64,7 @@ export default function AIEnhancedForm() {
       const completionTimeMs = Date.now() - startTime;
       await Promise.race([
         addDoc(collection(db, "survey_responses"), {
+          studyId,
           interface: 'ai-enhanced',
           personaId: currentPersona.id,
           formData: formData,

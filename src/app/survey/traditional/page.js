@@ -9,7 +9,7 @@ import PainSlider from '../../../components/PainSlider';
 import SpeedDatePicker from '../../../components/SpeedDatePicker';
 
 export default function TraditionalForm() {
-  const { currentPersona, markPersonaAsUsed } = useSurvey();
+  const { currentPersona, markPersonaAsUsed, studyId } = useSurvey();
   const router = useRouter();
   const [startTime, setStartTime] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +63,7 @@ export default function TraditionalForm() {
       // Race the database save against the 5-second timeout
       await Promise.race([
         addDoc(collection(db, "survey_responses"), {
+          studyId,
           interface: 'traditional',
           personaId: currentPersona.id,
           formData: formData,
