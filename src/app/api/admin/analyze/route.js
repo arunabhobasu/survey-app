@@ -65,14 +65,20 @@ Return ONLY this JSON:
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-haiku-20241022',
+          model: 'claude-3-haiku-20240307', // Switching to the most widely available stable version
           max_tokens: 1000,
-          system: "You are a data validation service. Output ONLY valid JSON. No preamble, no explanation.",
+          system: "You are a data validation service. Output ONLY valid JSON.",
           messages: [{ role: 'user', content: prompt }]
         })
       });
 
       const data = await res.json();
+      
+      // Handle API Errors directly
+      if (data.error) {
+        return Response.json({ errorRatePercent: 0, details: "Anthropic API Error: " + data.error.message });
+      }
+
       const text = data.content?.[0]?.text || '';
       
       // Robust JSON extraction
@@ -86,13 +92,20 @@ Return ONLY this JSON:
       }
 
       if (!jsonStr) {
-        return Response.json({ errorRatePercent: 0, details: "AI Response format invalid: " + text.slice(0,50) });
+        return Response.json({ 
+          errorRatePercent: 0, 
+          details: "Invalid Format. AI said: " + (text.slice(0, 100) || "Empty Response") 
+        });
       }
       
       try {
-        return Response.json(JSON.parse(jsonStr));
+        const parsed = JSON.parse(jsonStr);
+        return Response.json(parsed);
       } catch (e) {
-        return Response.json({ errorRatePercent: 0, details: "JSON Parse Error: " + text.slice(0,50) });
+        return Response.json({ 
+          errorRatePercent: 0, 
+          details: "JSON Error: " + text.slice(0, 100) 
+        });
       }
     }
 
