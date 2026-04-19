@@ -184,7 +184,6 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.025em' }}>Researcher Dashboard</h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Clinical Intake Study • High-Fidelity Data Analysis</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button 
