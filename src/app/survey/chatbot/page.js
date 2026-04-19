@@ -64,9 +64,9 @@ export default function ChatbotInterface() {
 
       const data = await res.json();
       
-      if (data.text && data.text.includes("INTAKE_COMPLETE")) {
+      if (data.text && data.text.includes("##INTAKE_COMPLETE##")) {
         setIsComplete(true);
-        setMessages(prev => [...prev, { role: 'assistant', content: data.text.replace("INTAKE_COMPLETE", "").trim() }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: data.text.replace("##INTAKE_COMPLETE##", "").trim() }]);
       } else if (data.text) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
       } else {

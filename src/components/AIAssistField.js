@@ -23,9 +23,13 @@ export default function AIAssistField({ label, name, type = "text", value, onCha
         body: JSON.stringify({ fieldName: label, helpType, currentValue: value, targetLanguage: lang })
       });
       const data = await res.json();
-      setAssistance(data.text || data.error || "No response.");
+      if (!res.ok) {
+        setAssistance(`Error: ${data.error || 'Could not load assistance.'}`);
+      } else {
+        setAssistance(data.text || 'No response received.');
+      }
     } catch (error) {
-      setAssistance("Failed to load assistance.");
+      setAssistance("Failed to connect to AI assistant.");
     } finally {
       setIsLoading(false);
     }
