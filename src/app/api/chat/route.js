@@ -49,13 +49,21 @@ export async function POST(req) {
     }
 
     // Build messages array for Claude. Claude uses 'user' and 'assistant' roles.
-    // Filter out any error messages from the UI to keep the history clean.
-    const messages = (history || [])
-      .filter(m => !m.content?.startsWith('Sorry,') && !m.content?.startsWith('You are speaking'))
+    // IMPORTANT: Claude requires the conversation to START with a 'user' message.
+    // The chatbot UI adds an initial 'assistant' greeting which we must strip out.
+    // We also filter any error messages the UI may have injected into the history.
+    const errorPrefixes = ['Sorry,', 'You are speaking', 'API Error', 'Internal server'];
+    let messages = (history || [])
+      .filter(m => !errorPrefixes.some(prefix => m.content?.startsWith(prefix)))
       .map(m => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content
       }));
+
+    // Drop any leading assistant messages — Claude will reject these
+    while (messages.length > 0 && messages[0].role === 'assistant') {
+      messages.shift();
+    }
 
     // Add the new user message
     messages.push({ role: 'user', content: message });
