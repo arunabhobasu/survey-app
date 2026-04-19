@@ -313,17 +313,23 @@ export default function AdminDashboard() {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Participant Feedback</h2>
           <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                <tr>
+                  <th style={{ padding: '1rem' }}>Study ID</th>
+                  <th style={{ padding: '1rem' }}>Detailed Feedback (AI Highlighted)</th>
+                </tr>
+              </thead>
               <tbody>
                 {studyIds.map(sid => {
                   const post = studies[sid]['post-survey']?.responses;
                   if (!post) return null;
-                  const feedback = post.highlightedFeedback || post.openEndedFeedback;
+                  const feedback = post.highlightedFeedback || post.openEndedFeedback || "No feedback provided.";
                   return (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem', width: '200px', fontWeight: 600 }}>{sid}</td>
+                      <td style={{ padding: '1rem', width: '200px', fontWeight: 600, fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
                       <td style={{ padding: '1rem', lineHeight: '1.6' }}>
                         {feedback.split(/(\*\*.*?\*\*)/g).map((part, index) => {
-                          if (part.startsWith('**') && part.endsWith('**')) {
+                          if (part && part.startsWith('**') && part.endsWith('**')) {
                             return <strong key={index} style={{ color: 'var(--primary)' }}>{part.slice(2, -2)}</strong>;
                           }
                           return part;
