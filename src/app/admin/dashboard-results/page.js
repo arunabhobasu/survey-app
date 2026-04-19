@@ -108,10 +108,10 @@ export default function AdminDashboard() {
   };
 
   const studyIds = Object.keys(studies);
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading...</div>;
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading Database...</div>;
 
   return (
-    <div style={{ maxWidth: '95rem', margin: '0 auto', padding: '2rem' }}>
+    <div style={{ maxWidth: '90rem', margin: '0 auto', padding: '2rem' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <div>
@@ -119,9 +119,9 @@ export default function AdminDashboard() {
           {analysisStatus && <p style={{ color: 'var(--primary)', fontWeight: 600, marginTop: '0.5rem' }}>🔄 {analysisStatus}</p>}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Wipe</button>
-          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Analyze Data</button>
-          <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Export Excel</button>
+          <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Wipe</button>
+          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', opacity: isProcessingAI ? 0.5 : 1 }}>{isProcessingAI ? 'Running...' : 'Analyze Data'}</button>
+          <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Export Excel</button>
         </div>
       </div>
 
@@ -130,8 +130,8 @@ export default function AdminDashboard() {
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Master Participant Registry</h2>
         <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+              <tr>
                 <th style={{ padding: '1rem' }}>Study ID</th>
                 <th style={{ padding: '1rem' }}>Name</th>
                 <th style={{ padding: '1rem' }}>Registration Date</th>
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
                     <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
                     <td style={{ padding: '1rem' }}>{main.formData?.name || "Anonymous"}</td>
                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{main.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
-                    <td style={{ padding: '1rem' }}><span style={{ padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.7rem', backgroundColor: '#eee', fontWeight: 700 }}>{count}/3 Steps</span></td>
+                    <td style={{ padding: '1rem', fontWeight: 700, fontSize: '0.75rem' }}>{count}/3 Steps</td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; const batch = writeBatch(db); Object.values(studies[sid]).forEach(e => batch.delete(doc(db, 'survey_responses', e.id))); await batch.commit(); fetchData(); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button></td>
                   </tr>
                 );
@@ -173,8 +173,8 @@ export default function AdminDashboard() {
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', textTransform: 'capitalize' }}>{intName.replace('-', ' ')} Results</h2>
               <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                    <tr>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Study ID</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>DOB</th>
@@ -217,15 +217,12 @@ export default function AdminDashboard() {
       {/* QUANTITATIVE TAB */}
       {activeTab === 'quantitative' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4rem' }}>
-          {/* 1. Completion Times */}
           <section>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Completion Times (Seconds)</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
-                  </tr>
+                <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th></tr>
                 </thead>
                 <tbody>
                   {studyIds.map(sid => (
@@ -241,15 +238,12 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* 2. Error Rates */}
           <section>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Error Rate (%) — Hover for AI Reasoning</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
-                  </tr>
+                <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th></tr>
                 </thead>
                 <tbody>
                   {studyIds.map(sid => (
@@ -269,15 +263,12 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* 3. Usability Scores */}
           <section>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Usability Scores (1-5)</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
-                  </tr>
+                <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th></tr>
                 </thead>
                 <tbody>
                   {studyIds.map(sid => (
@@ -293,15 +284,12 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* 4. Trust Scores */}
           <section>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Trust Scores (1-5)</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
-                  </tr>
+                <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th></tr>
                 </thead>
                 <tbody>
                   {studyIds.map(sid => (
