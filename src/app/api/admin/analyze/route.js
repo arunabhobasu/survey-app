@@ -15,8 +15,8 @@ export async function POST(req) {
 
       if (!persona) return Response.json({ error: 'Persona not found' }, { status: 404 });
 
-      const prompt = `You are a data validation expert for a clinical study.
-Compare the "Submitted Data" against the "Target Persona" profile.
+      const prompt = `You are a strict data auditor for a high-fidelity clinical research study.
+Compare the "Submitted Data" against the "Target Persona" profile. Your goal is to identify factual errors.
 
 Target Persona:
 ${JSON.stringify(persona, null, 2)}
@@ -24,16 +24,28 @@ ${JSON.stringify(persona, null, 2)}
 Submitted Data:
 ${JSON.stringify(submittedData, null, 2)}
 
-TASK:
-1. Identify how many of the 9 key fields (Name, DOB, Sex, Reason, Duration, Pain, Medications, Allergies, Family History) were correctly provided based on the Target Persona.
-2. Correctness means the user provided the essential information from the persona. They are allowed to provide EXTRA details, but they must NOT provide LESS or WRONG information compared to the persona.
-3. Calculate the Error Rate as a percentage of fields that were MISSING or INCORRECT out of the 9 fields.
-4. If a field is missing, it's an error. If a field is wrong, it's an error.
+VERIFICATION CRITERIA (Total 9 Fields):
+1. name: Must match exactly.
+2. dob: Must match exactly (YYYY-MM-DD).
+3. sex: Must match exactly.
+4. reasonForVisit: Key symptoms/complaint must match. 
+5. duration: Timeframe must match exactly.
+6. painLevel: Must match exactly (1-10).
+7. medications: Must match exactly.
+8. allergies: Must match exactly.
+9. familyHistory: Key details must match.
 
-Return ONLY a JSON object with this format:
+RULES:
+- A field is an ERROR if it is: Missing, Factually Different, or Contradictory.
+- Minor typos are okay, but different dates, names, or symptoms are NOT okay.
+- If the Submitted Data is a "chatbot summary", look for the presence of these facts in the text.
+
+TASK:
+Calculate the Error Rate as: (Number of Incorrect/Missing Fields / 9) * 100.
+Return ONLY a JSON object:
 {
   "errorRatePercent": [number],
-  "details": "[brief explanation of errors]"
+  "details": "[List exactly which fields were wrong and why]"
 }`;
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
