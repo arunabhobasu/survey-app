@@ -40,26 +40,53 @@ export default function AIEnhancedForm() {
 
   const incrementAiUsage = () => setAiUsageCount(prev => prev + 1);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!currentPersona) return;
+    if (!currentPersona || isSubmitting) return;
+
+    // Strict validation
+    const requiredFields = ['name', 'dob', 'sex', 'reasonForVisit', 'duration', 'medications', 'allergies', 'familyHistory'];
+    const isComplete = requiredFields.every(field => formData[field] && formData[field].trim() !== '');
+    
+    if (!isComplete) {
+      alert("Please fill out all fields before continuing.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("TIMEOUT")), 5000)
+    );
 
     try {
       const completionTimeMs = Date.now() - startTime;
-      await addDoc(collection(db, "survey_responses"), {
-        interface: 'ai-enhanced',
-        personaId: currentPersona.id,
-        formData: formData,
-        aiUsage: aiUsageCount,
-        completionTimeMs,
-        timestamp: serverTimestamp()
-      });
+      await Promise.race([
+        addDoc(collection(db, "survey_responses"), {
+          interface: 'ai-enhanced',
+          personaId: currentPersona.id,
+          formData: formData,
+          aiUsage: aiUsageCount,
+          completionTimeMs,
+          timestamp: serverTimestamp()
+        }),
+        timeoutPromise
+      ]);
 
       markPersonaAsUsed(currentPersona.id);
       router.push('/post-survey');
     } catch (error) {
-      console.error("Error saving ai-enhanced response:", error);
-      alert("Error saving response. Please try again.");
+      console.error("Submission Issue:", error);
+      if (error.message === "TIMEOUT") {
+        console.warn("Database hanging. Proceeding with Safety-Pass...");
+        markPersonaAsUsed(currentPersona.id);
+        router.push('/post-survey');
+      } else {
+        alert("DATABASE ERROR: " + error.message);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -121,8 +148,8 @@ export default function AIEnhancedForm() {
         <AIAssistField label="Family Medical History" name="familyHistory" value={formData.familyHistory} onChange={handleChange} isTextarea onAssistTriggered={incrementAiUsage} />
 
         <div style={{ paddingTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="submit" className="btn btn-primary">
-            Submit & Continue →
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting} style={{ opacity: isSubmitting ? 0.5 : 1 }}>
+            {isSubmitting ? 'Saving...' : 'Submit & Continue →'}
           </button>
         </div>
       </form>

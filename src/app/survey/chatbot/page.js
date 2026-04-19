@@ -50,6 +50,13 @@ export default function ChatbotInterface() {
         body: JSON.stringify({ history: apiHistory, message: userMessage })
       });
 
+      if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("You are speaking too fast! The AI is rate-limited. Please wait 60 seconds and try again.");
+        }
+        throw new Error("API Connection Failed.");
+      }
+
       const data = await res.json();
       
       if (data.text && data.text.includes("INTAKE_COMPLETE")) {
@@ -58,11 +65,11 @@ export default function ChatbotInterface() {
       } else if (data.text) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.text }]);
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error. Could you repeat that?" }]);
+        throw new Error("Invalid response format.");
       }
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error. Could you repeat that?" }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: error.message || "Sorry, I encountered an error. Could you repeat that?" }]);
     } finally {
       setIsLoading(false);
     }

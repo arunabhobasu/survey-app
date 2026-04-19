@@ -41,6 +41,15 @@ export default function TraditionalForm() {
     e.preventDefault();
     if (!currentPersona || isLoading) return;
 
+    // Strict validation to ensure no fields are skipped
+    const requiredFields = ['name', 'dob', 'sex', 'reasonForVisit', 'duration', 'medications', 'allergies', 'familyHistory'];
+    const isComplete = requiredFields.every(field => formData[field] && formData[field].trim() !== '');
+    
+    if (!isComplete) {
+      alert("Please fill out all fields before continuing.");
+      return;
+    }
+
     setIsLoading(true);
     
     // Create a promise that rejects after 5 seconds
