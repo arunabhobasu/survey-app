@@ -1,4 +1,4 @@
-import personas from '../../../data/personas.json';
+import personas from '../../../../data/personas.json';
 
 export async function POST(req) {
   try {
