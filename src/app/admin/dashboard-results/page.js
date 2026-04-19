@@ -196,7 +196,8 @@ export default function AdminDashboard() {
               fontSize: '0.75rem', 
               padding: '0.4rem 1rem', 
               borderRadius: '2rem',
-              fontWeight: 600
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
             }}
           >
             Wipe
@@ -212,7 +213,8 @@ export default function AdminDashboard() {
               fontSize: '0.75rem', 
               padding: '0.4rem 1rem', 
               borderRadius: '2rem',
-              fontWeight: 600
+              fontWeight: 600,
+              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)'
             }}
           >
             {isProcessingAI ? 'Analyzing...' : 'Analyze'}
@@ -227,7 +229,8 @@ export default function AdminDashboard() {
               fontSize: '0.75rem', 
               padding: '0.4rem 1rem', 
               borderRadius: '2rem',
-              fontWeight: 600
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
             }}
           >
             Export
