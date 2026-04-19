@@ -89,21 +89,22 @@ export default function AdminDashboard() {
       const rows = Object.entries(studies).map(([sid, data]) => {
         const entry = data[intName];
         if (!entry) return null;
-        return { StudyID: sid, Name: entry.formData?.name || "Unknown", PersonaID: entry.personaId, TimeS: (entry.completionTimeMs/1000).toFixed(1), Error: `${entry.errorRatePercent||0}%`, ...entry.formData };
+        return { StudyID: sid, Name: entry.formData?.name || "Unknown", PersonaID: entry.personaId, CompletionTimeSeconds: (entry.completionTimeMs/1000).toFixed(1), ErrorRate: `${entry.errorRatePercent||0}%`, ...entry.formData };
       }).filter(Boolean);
       if (rows.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), intName.toUpperCase());
     });
     const summary = Object.entries(studies).map(([sid, data]) => {
       const p = data['post-survey']?.responses || {};
       return { StudyID: sid, 
-        Time_T: data.traditional?.completionTimeMs/1000, Time_C: data.chatbot?.completionTimeMs/1000, Time_AI: data['ai-enhanced']?.completionTimeMs/1000,
-        Err_T: data.traditional?.errorRatePercent, Err_C: data.chatbot?.errorRatePercent, Err_AI: data['ai-enhanced']?.errorRatePercent,
+        Time_Traditional: data.traditional?.completionTimeMs/1000, Time_Chatbot: data.chatbot?.completionTimeMs/1000, Time_AI_Enhanced: data['ai-enhanced']?.completionTimeMs/1000,
+        Error_Traditional: data.traditional?.errorRatePercent, Error_Chatbot: data.chatbot?.errorRatePercent, Error_AI_Enhanced: data['ai-enhanced']?.errorRatePercent,
         Usability_T: p.usabilityTraditional, Usability_C: p.usabilityChatbot, Usability_AI: p.usabilityAIEnhanced,
-        Feedback: p.openEndedFeedback
+        Trust_T: p.trustTraditional, Trust_C: p.trustChatbot, Trust_AI: p.trustAIEnhanced,
+        QualitativeFeedback: p.openEndedFeedback
       };
     });
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summary), "SUMMARY");
-    XLSX.writeFile(workbook, `Study_Export.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summary), "ANALYTICS_SUMMARY");
+    XLSX.writeFile(workbook, `Clinical_Research_Data.xlsx`);
   };
 
   const studyIds = Object.keys(studies);
@@ -111,24 +112,32 @@ export default function AdminDashboard() {
 
   return (
     <div style={{ maxWidth: '95rem', margin: '0 auto', padding: '2rem' }}>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Researcher Dashboard</h1>
-          {analysisStatus && <p style={{ color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600 }}>🔄 {analysisStatus}</p>}
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 800 }}>Researcher Dashboard</h1>
+          {analysisStatus && <p style={{ color: 'var(--primary)', fontWeight: 600, marginTop: '0.5rem' }}>🔄 {analysisStatus}</p>}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Wipe</button>
-          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Analyze</button>
+          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Analyze Data</button>
           <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none' }}>Export Excel</button>
         </div>
       </div>
 
+      {/* MASTER PARTICIPANT TABLE */}
       <section style={{ marginBottom: '3rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Master Participant Registry</h2>
         <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))' }}>
-              <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Name</th><th style={{ padding: '1rem' }}>Progress</th><th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th></tr>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '1rem' }}>Study ID</th>
+                <th style={{ padding: '1rem' }}>Name</th>
+                <th style={{ padding: '1rem' }}>Registration Date</th>
+                <th style={{ padding: '1rem' }}>Progress</th>
+                <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {studyIds.map(sid => {
@@ -138,8 +147,9 @@ export default function AdminDashboard() {
                   <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
                     <td style={{ padding: '1rem' }}>{main.formData?.name || "Anonymous"}</td>
-                    <td style={{ padding: '1rem' }}><span style={{ padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.7rem', backgroundColor: '#eee' }}>{count}/3 Steps</span></td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; const batch = writeBatch(db); Object.values(studies[sid]).forEach(e => batch.delete(doc(db, 'survey_responses', e.id))); await batch.commit(); fetchData(); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button></td>
+                    <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{main.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
+                    <td style={{ padding: '1rem' }}><span style={{ padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.7rem', backgroundColor: '#eee', fontWeight: 700 }}>{count}/3 Steps</span></td>
+                    <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; const batch = writeBatch(db); Object.values(studies[sid]).forEach(e => batch.delete(doc(db, 'survey_responses', e.id))); await batch.commit(); fetchData(); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button></td>
                   </tr>
                 );
               })}
@@ -148,31 +158,33 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      {/* Tabs */}
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
         {['individual', 'quantitative', 'qualitative'].map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '0.75rem 0.5rem', fontWeight: 600, background: 'none', border: 'none', borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)' }}>{tab.toUpperCase()}</button>
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '1rem 0.5rem', fontWeight: 600, background: 'none', border: 'none', borderBottom: activeTab === tab ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer' }}>{tab.toUpperCase()} RESPONSES</button>
         ))}
       </div>
 
+      {/* INDIVIDUAL TAB */}
       {activeTab === 'individual' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           {['traditional', 'chatbot', 'ai-enhanced'].map(intName => (
             <section key={intName}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', textTransform: 'capitalize' }}>{intName} Results</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', textTransform: 'capitalize' }}>{intName.replace('-', ' ')} Results</h2>
               <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.75rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '0.5rem' }}>Study ID</th>
-                      <th style={{ padding: '0.5rem' }}>Name</th>
-                      <th style={{ padding: '0.5rem' }}>DOB</th>
-                      <th style={{ padding: '0.5rem' }}>Sex</th>
-                      <th style={{ padding: '0.5rem' }}>Reason</th>
-                      <th style={{ padding: '0.5rem' }}>Duration</th>
-                      <th style={{ padding: '0.5rem' }}>Pain</th>
-                      <th style={{ padding: '0.5rem' }}>Meds</th>
-                      <th style={{ padding: '0.5rem' }}>Allergies</th>
-                      <th style={{ padding: '0.5rem' }}>Family</th>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Study ID</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>DOB</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Sex</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Reason</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Duration</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Pain</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Meds</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Allergies</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Family</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -181,16 +193,16 @@ export default function AdminDashboard() {
                       if (!studies[sid][intName]) return null;
                       return (
                         <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.5rem', fontFamily: 'monospace' }}>{sid}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.name}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.dob}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.sex}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.reasonForVisit}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.duration}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.painLevel}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.medications}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.allergies}</td>
-                          <td style={{ padding: '0.5rem' }}>{f.familyHistory}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'monospace' }}>{sid}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.name}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.dob}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.sex}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.reasonForVisit}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.duration}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.painLevel}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.medications}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.allergies}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.familyHistory}</td>
                         </tr>
                       );
                     })}
@@ -202,61 +214,132 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* QUANTITATIVE TAB */}
       {activeTab === 'quantitative' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4rem' }}>
+          {/* 1. Completion Times */}
           <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Metrics (Time in Sec / Error %)</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Completion Times (Seconds)</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-                <thead style={{ backgroundColor: '#f9fafb' }}>
-                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional (T/E)</th><th style={{ padding: '1rem' }}>Chatbot (T/E)</th><th style={{ padding: '1rem' }}>AI (T/E)</th></tr>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {studyIds.map(sid => (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem', fontFamily: 'monospace' }}>{sid}</td>
-                      {['traditional', 'chatbot', 'ai-enhanced'].map(int => {
-                        const e = studies[sid][int];
-                        return <td key={int} style={{ padding: '1rem' }}>{e ? `${(e.completionTimeMs/1000).toFixed(1)}s / ${e.errorRatePercent||0}%` : '-'}</td>
-                      })}
+                      <td style={{ padding: '1rem' }}>{studies[sid].traditional ? (studies[sid].traditional.completionTimeMs/1000).toFixed(1) : '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid].chatbot ? (studies[sid].chatbot.completionTimeMs/1000).toFixed(1) : '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['ai-enhanced'] ? (studies[sid]['ai-enhanced'].completionTimeMs/1000).toFixed(1) : '-'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </section>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-            <section>
-              <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>Usability (1-5)</h2>
-              <div style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}>
-                {studyIds.map(sid => { const p = studies[sid]['post-survey']?.responses || {}; return <div key={sid} style={{ padding: '0.5rem', borderBottom: '1px solid #eee', fontSize: '0.8rem' }}>{sid}: {p.usabilityTraditional||'-'} | {p.usabilityChatbot||'-'} | {p.usabilityAIEnhanced||'-'}</div>})}
-              </div>
-            </section>
-            <section>
-              <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>Trust (1-5)</h2>
-              <div style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '0.5rem' }}>
-                {studyIds.map(sid => { const p = studies[sid]['post-survey']?.responses || {}; return <div key={sid} style={{ padding: '0.5rem', borderBottom: '1px solid #eee', fontSize: '0.8rem' }}>{sid}: {p.trustTraditional||'-'} | {p.trustChatbot||'-'} | {p.trustAIEnhanced||'-'}</div>})}
-              </div>
-            </section>
-          </div>
+
+          {/* 2. Error Rates */}
+          <section>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Error Rate (%) — Hover for AI Reasoning</h2>
+            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studyIds.map(sid => (
+                    <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem', fontFamily: 'monospace' }}>{sid}</td>
+                      {['traditional', 'chatbot', 'ai-enhanced'].map(int => (
+                        <td key={int} style={{ padding: '1rem' }}>
+                          <div title={studies[sid][int]?.details || "No errors found"} style={{ cursor: 'help', textDecoration: 'underline dotted', display: 'inline-block' }}>
+                            {studies[sid][int]?.errorRatePercent !== undefined ? `${studies[sid][int].errorRatePercent.toFixed(1)}%` : '-'}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 3. Usability Scores */}
+          <section>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Usability Scores (1-5)</h2>
+            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studyIds.map(sid => (
+                    <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem', fontFamily: 'monospace' }}>{sid}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.usabilityTraditional || '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.usabilityChatbot || '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.usabilityAIEnhanced || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* 4. Trust Scores */}
+          <section>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Trust Scores (1-5)</h2>
+            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studyIds.map(sid => (
+                    <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '1rem', fontFamily: 'monospace' }}>{sid}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.trustTraditional || '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.trustChatbot || '-'}</td>
+                      <td style={{ padding: '1rem' }}>{studies[sid]['post-survey']?.responses?.trustAIEnhanced || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       )}
 
+      {/* QUALITATIVE TAB */}
       {activeTab === 'qualitative' && (
         <section>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem' }}>Participant Feedback</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Participant Feedback</h2>
           <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <tbody>
                 {studyIds.map(sid => {
-                  const p = studies[sid]['post-survey']?.responses;
-                  if (!p) return null;
-                  const f = p.highlightedFeedback || p.openEndedFeedback;
+                  const post = studies[sid]['post-survey']?.responses;
+                  if (!post) return null;
+                  const feedback = post.highlightedFeedback || post.openEndedFeedback;
                   return (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem', width: '150px', fontWeight: 600 }}>{sid}</td>
-                      <td style={{ padding: '1rem', lineHeight: '1.5' }}>
-                        {f.split(/(\*\*.*?\*\*)/g).map((part, i) => part.startsWith('**') ? <strong key={i} style={{color:'var(--primary)'}}>{part.slice(2,-2)}</strong> : part)}
+                      <td style={{ padding: '1rem', width: '200px', fontWeight: 600 }}>{sid}</td>
+                      <td style={{ padding: '1rem', lineHeight: '1.6' }}>
+                        {feedback.split(/(\*\*.*?\*\*)/g).map((part, index) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={index} style={{ color: 'var(--primary)' }}>{part.slice(2, -2)}</strong>;
+                          }
+                          return part;
+                        })}
                       </td>
                     </tr>
                   );
