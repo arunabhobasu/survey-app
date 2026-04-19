@@ -112,9 +112,25 @@ export default function AdminDashboard() {
         // 1. Calculate Error Rates for each interface
         for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
           const entry = data[intName];
-          if (entry && entry.id) { // REMOVED !entry.errorRatePercent check
-            const submittedData = intName === 'chatbot' ? { summary: entry.chatHistory?.map(m => `${m.role}: ${m.content}`).join('\n') } : entry.formData;
-            const res = await fetch('/api/admin/analyze', { method: 'POST', body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData } }) });
+          if (entry && entry.id) {
+            // Flatten the data so the AI sees a clean set of facts
+            let facts = {};
+            if (intName === 'chatbot') {
+              facts = { 
+                chat_summary: entry.chatHistory?.map(m => `${m.role}: ${m.content}`).join('\n'),
+                extracted_fields: entry.formData || {} // Use the AI-extracted data if available
+              };
+            } else {
+              facts = entry.formData || {};
+            }
+
+            const res = await fetch('/api/admin/analyze', { 
+              method: 'POST', 
+              body: JSON.stringify({ 
+                action: 'calculate_error_rate', 
+                payload: { personaId: entry.personaId, submittedData: facts } 
+              }) 
+            });
             const result = await res.json();
             
             if (result.errorRatePercent !== undefined) {
