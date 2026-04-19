@@ -263,6 +263,58 @@ export default function AdminDashboard() {
 
       {activeTab === 'individual' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+          {/* MASTER PARTICIPANT LIST */}
+          <section>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.5rem' }}>📋</span> Master Participant List
+            </h2>
+            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflowX: 'auto', boxShadow: 'var(--shadow-sm)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Study ID</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Name</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Date & Time</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studyIds.map(sid => {
+                    const data = studies[sid];
+                    const mainDoc = data.traditional || data.chatbot || data['ai-enhanced'] || data['post-survey'];
+                    const name = data.traditional?.formData?.name || data.chatbot?.formData?.name || data['ai-enhanced']?.formData?.name || "Anonymous";
+                    const timestamp = mainDoc?.timestamp?.toDate().toLocaleString() || "Unknown";
+                    const completedCount = Object.keys(data).length;
+                    
+                    return (
+                      <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: 'var(--primary)', fontSize: '0.8rem' }}>{sid}</td>
+                        <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{name}</td>
+                        <td style={{ padding: '0.75rem 1rem' }}>{timestamp}</td>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            padding: '0.2rem 0.5rem', 
+                            borderRadius: '1rem', 
+                            backgroundColor: completedCount >= 4 ? '#10b98122' : '#f59e0b22',
+                            color: completedCount >= 4 ? '#10b981' : '#f59e0b',
+                            fontWeight: 700
+                          }}>
+                            {completedCount}/4 Steps
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <button onClick={() => handleDelete(sid, data)} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Delete All</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           {['traditional', 'chatbot', 'ai-enhanced'].map(intName => (
             <section key={intName}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
