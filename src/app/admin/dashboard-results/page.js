@@ -388,6 +388,67 @@ export default function AdminDashboard() {
               </table>
             </div>
           </section>
+          {/* Table: Usability/Trust Scores */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+            <section>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>Usability Score (1-5)</h2>
+              <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                    <tr>
+                      <th style={{ padding: '0.75rem' }}>Participant</th>
+                      <th style={{ padding: '0.75rem' }}>T</th>
+                      <th style={{ padding: '0.75rem' }}>C</th>
+                      <th style={{ padding: '0.75rem' }}>E</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studyIds.map(sid => {
+                      const post = studies[sid]['post-survey']?.responses;
+                      if (!post) return null;
+                      return (
+                        <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>{studies[sid].traditional?.formData?.name || "Anon"}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.usabilityTraditional}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.usabilityChatbot}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.usabilityAIEnhanced}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>Trust Score (1-5)</h2>
+              <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
+                    <tr>
+                      <th style={{ padding: '0.75rem' }}>Participant</th>
+                      <th style={{ padding: '0.75rem' }}>T</th>
+                      <th style={{ padding: '0.75rem' }}>C</th>
+                      <th style={{ padding: '0.75rem' }}>E</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studyIds.map(sid => {
+                      const post = studies[sid]['post-survey']?.responses;
+                      if (!post) return null;
+                      return (
+                        <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>{studies[sid].traditional?.formData?.name || "Anon"}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.trustTraditional}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.trustChatbot}</td>
+                          <td style={{ padding: '0.75rem' }}>{post.trustAIEnhanced}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </div>
       )}
 
