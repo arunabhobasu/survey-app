@@ -106,27 +106,47 @@ export default function AdminDashboard() {
     setIsProcessingAI(true);
     try {
       const updatedStudies = { ...studies };
+      const batch = []; // We'll collect promises to update in parallel
+
       for (const [sid, data] of Object.entries(updatedStudies)) {
+        // 1. Calculate Error Rates for each interface
         for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
           const entry = data[intName];
-          if (entry && !entry.errorRatePercent) {
+          if (entry && entry.id && !entry.errorRatePercent) {
             const submittedData = intName === 'chatbot' ? { summary: entry.chatHistory?.map(m => `${m.role}: ${m.content}`).join('\n') } : entry.formData;
             const res = await fetch('/api/admin/analyze', { method: 'POST', body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData } }) });
             const result = await res.json();
-            entry.errorRatePercent = result.errorRatePercent;
+            
+            if (result.errorRatePercent !== undefined) {
+              entry.errorRatePercent = result.errorRatePercent;
+              // Save to Firestore
+              const { updateDoc, doc } = await import('firebase/firestore');
+              batch.push(updateDoc(doc(db, 'survey_responses', entry.id), { errorRatePercent: result.errorRatePercent }));
+            }
           }
         }
+
+        // 2. Bold keywords in qualitative feedback
         const postSurvey = data['post-survey'];
-        if (postSurvey && postSurvey.responses && !postSurvey.responses.highlightedFeedback) {
+        if (postSurvey && postSurvey.id && postSurvey.responses && !postSurvey.responses.highlightedFeedback) {
           const res = await fetch('/api/admin/analyze', { method: 'POST', body: JSON.stringify({ action: 'bold_keywords', payload: { text: postSurvey.responses.openEndedFeedback } }) });
           const result = await res.json();
-          postSurvey.responses.highlightedFeedback = result.text;
+          
+          if (result.text) {
+            postSurvey.responses.highlightedFeedback = result.text;
+            // Save to Firestore
+            const { updateDoc, doc } = await import('firebase/firestore');
+            batch.push(updateDoc(doc(db, 'survey_responses', postSurvey.id), { 'responses.highlightedFeedback': result.text }));
+          }
         }
       }
-      setStudies(updatedStudies);
-      alert("AI Analysis complete!");
+
+      await Promise.all(batch);
+      setStudies({ ...updatedStudies });
+      alert(`AI Analysis complete! Processed ${batch.length} updates.`);
     } catch (error) {
-      alert("AI analysis failed.");
+      console.error("AI Analysis Error:", error);
+      alert("AI analysis failed: " + error.message);
     } finally {
       setIsProcessingAI(false);
     }
