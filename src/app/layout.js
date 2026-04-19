@@ -5,8 +5,8 @@ import { SurveyProvider } from "../context/SurveyContext";
 import { ThemeProvider } from "../context/ThemeContext";
 
 export const metadata = {
-  title: "Data Collection Interface Study",
-  description: "HCI Comparative Analysis of Clinical Intake Interfaces",
+  title: "Clinical Intake Study",
+  description: "Analyzing user experience across diverse data collection modalities.",
 };
 
 export default function RootLayout({ children }) {
