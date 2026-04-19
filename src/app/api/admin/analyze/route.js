@@ -65,7 +65,7 @@ Return ONLY this JSON:
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022', // The most powerful and compatible 3.5 model
+          model: 'claude-3-5-haiku-20241022', // The latest 3.5 Haiku
           max_tokens: 1500,
           system: "You are a professional clinical data auditor. You must output ONLY a valid JSON object. No other text.",
           messages: [{ role: 'user', content: prompt }]
