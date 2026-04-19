@@ -112,7 +112,7 @@ export default function AdminDashboard() {
         // 1. Calculate Error Rates for each interface
         for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
           const entry = data[intName];
-          if (entry && entry.id && !entry.errorRatePercent) {
+          if (entry && entry.id) { // REMOVED !entry.errorRatePercent check
             const submittedData = intName === 'chatbot' ? { summary: entry.chatHistory?.map(m => `${m.role}: ${m.content}`).join('\n') } : entry.formData;
             const res = await fetch('/api/admin/analyze', { method: 'POST', body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData } }) });
             const result = await res.json();
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
 
         // 2. Bold keywords in qualitative feedback
         const postSurvey = data['post-survey'];
-        if (postSurvey && postSurvey.id && postSurvey.responses && !postSurvey.responses.highlightedFeedback) {
+        if (postSurvey && postSurvey.id && postSurvey.responses) { // REMOVED !postSurvey.responses.highlightedFeedback check
           const res = await fetch('/api/admin/analyze', { method: 'POST', body: JSON.stringify({ action: 'bold_keywords', payload: { text: postSurvey.responses.openEndedFeedback } }) });
           const result = await res.json();
           
