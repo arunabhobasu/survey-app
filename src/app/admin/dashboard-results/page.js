@@ -39,27 +39,43 @@ export default function AdminDashboard() {
   }
 
   const handleDelete = async (sid, data) => {
-    const name = data.traditional?.formData?.name || data.chatbot?.formData?.name || "this participant";
-    if (!confirm(`Are you sure you want to delete ALL data for ${name}? This cannot be undone.`)) return;
+    const name = data.traditional?.formData?.name || data.chatbot?.formData?.name || data['ai-enhanced']?.formData?.name || "this participant";
+    if (!confirm(`Are you sure you want to delete ALL data for ${name}? This will remove them from ALL tables (Individual, Quantitative, and Qualitative).`)) return;
 
     try {
       const batch = writeBatch(db);
-      
-      if (sid.startsWith('legacy_')) {
-        // Delete only the single document for legacy entries
-        const docId = sid.replace('legacy_', '');
-        batch.delete(doc(db, 'survey_responses', docId));
-      } else {
-        // Delete all docs matching this studyId
+      let docsToDelete = [];
+
+      if (sid && !sid.startsWith('legacy_')) {
+        // 1. BEST CASE: Delete by studyId (exact match for all 4 interfaces)
         const q = query(collection(db, 'survey_responses'), where('studyId', '==', sid));
         const snap = await getDocs(q);
-        snap.forEach(d => batch.delete(d.ref));
+        docsToDelete = snap.docs;
+      } else if (name && name !== "Anonymous") {
+        // 2. LEGACY CASE: Delete by Name (finds all docs for this person)
+        // Note: We check multiple fields where the name might be stored
+        const q1 = query(collection(db, 'survey_responses'), where('formData.name', '==', name));
+        const snap1 = await getDocs(q1);
+        docsToDelete = [...snap1.docs];
+      } else {
+        // 3. FALLBACK: Delete the specific single doc
+        const docId = sid.startsWith('legacy_') ? sid.replace('legacy_', '') : sid;
+        const d = await getDocs(query(collection(db, 'survey_responses'), where('__name__', '==', docId)));
+        docsToDelete = d.docs;
       }
-      
+
+      if (docsToDelete.length === 0) {
+        alert("Could not find related records to delete.");
+        return;
+      }
+
+      docsToDelete.forEach(d => batch.delete(d.ref));
       await batch.commit();
-      fetchData(); // Refresh
-      alert("Entry deleted successfully.");
+      
+      fetchData(); // Refresh UI
+      alert(`Successfully deleted ${docsToDelete.length} records for ${name}.`);
     } catch (error) {
+      console.error("Delete failed:", error);
       alert("Delete failed: " + error.message);
     }
   };
