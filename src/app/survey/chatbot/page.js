@@ -10,7 +10,7 @@ export default function ChatbotInterface() {
   const { currentPersona, markPersonaAsUsed } = useSurvey();
   const router = useRouter();
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm your AI intake assistant. To get started, could you please tell me your full name?" }
+    { role: 'assistant', content: "Hello! I'm your intake assistant bot. To get started, could you please tell me your full name?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +164,12 @@ export default function ChatbotInterface() {
               ),
               whiteSpace: 'pre-wrap'
             }}>
-              {msg.content}
+              {msg.content.split(/(\*\*.*?\*\*)/g).map((part, index) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={index}>{part.slice(2, -2)}</strong>;
+                }
+                return part;
+              })}
             </div>
           </div>
         ))}

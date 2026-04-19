@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function AIAssistField({ label, name, type = "text", value, onChange, onAssistTriggered, isTextarea = false, children }) {
   const [assistance, setAssistance] = useState(null);
@@ -8,6 +8,18 @@ export default function AIAssistField({ label, name, type = "text", value, onCha
   const [showOptions, setShowOptions] = useState(false);
   const [showTranslateInput, setShowTranslateInput] = useState(false);
   const [targetLang, setTargetLang] = useState('');
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowOptions(false);
+        setShowTranslateInput(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const requestHelp = async (helpType, lang = '') => {
     setIsLoading(true);
@@ -71,7 +83,7 @@ export default function AIAssistField({ label, name, type = "text", value, onCha
     <div style={{ position: 'relative', marginBottom: '1.25rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.25rem' }}>
         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-muted)' }}>{label}</label>
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} ref={menuRef}>
           <button
             type="button"
             onClick={() => { setShowOptions(!showOptions); setShowTranslateInput(false); }}

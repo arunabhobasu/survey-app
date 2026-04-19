@@ -186,8 +186,8 @@ export default function PostSurvey() {
           </section>
 
           <div style={{ paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button type="submit" className="btn btn-primary">
-              Submit
+            <button type="submit" className="btn btn-primary" disabled={isLoading} style={{ opacity: isLoading ? 0.5 : 1 }}>
+              {isLoading ? 'Submitting...' : 'Submit'}
             </button>
           </div>
         </form>
