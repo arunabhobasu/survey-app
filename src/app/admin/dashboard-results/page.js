@@ -322,30 +322,36 @@ export default function AdminDashboard() {
                 {intName.replace('-', ' ')} Data
               </h2>
               <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                   <thead>
                     <tr style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Participant Name</th>
-                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Reason</th>
-                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Pain</th>
-                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Time (s)</th>
-                      <th style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>Actions</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', minWidth: '120px' }}>Name</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)' }}>DOB</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)' }}>Sex</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', minWidth: '150px' }}>Reason</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)' }}>Dur.</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)' }}>Pain</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', minWidth: '150px' }}>Meds</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', minWidth: '150px' }}>Allergies</th>
+                      <th style={{ padding: '0.75rem 0.5rem', color: 'var(--text-muted)', minWidth: '150px' }}>Family Hx</th>
                     </tr>
                   </thead>
                   <tbody>
                     {studyIds.map(sid => {
                       const entry = studies[sid][intName];
                       if (!entry) return null;
-                      const pName = studies[sid].traditional?.formData?.name || studies[sid].chatbot?.formData?.name || "Anonymous";
+                      const f = entry.formData || {};
                       return (
                         <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{pName}</td>
-                          <td style={{ padding: '0.75rem 1rem' }}>{entry.formData?.reasonForVisit || "Collected"}</td>
-                          <td style={{ padding: '0.75rem 1rem' }}>{entry.formData?.painLevel ?? "N/A"}</td>
-                          <td style={{ padding: '0.75rem 1rem' }}>{(entry.completionTimeMs / 1000).toFixed(1)}s</td>
-                          <td style={{ padding: '0.75rem 1rem' }}>
-                            <button onClick={() => handleDelete(sid, studies[sid])} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>Delete</button>
-                          </td>
+                          <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600 }}>{f.name || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.dob || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.sex || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.reasonForVisit || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.duration || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.painLevel ?? "N/A"}/10</td>
+                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.medications || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.allergies || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.familyHistory || "N/A"}</td>
                         </tr>
                       );
                     })}

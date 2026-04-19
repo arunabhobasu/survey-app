@@ -87,18 +87,57 @@ export default function ChatbotInterface() {
     
     setIsSubmitting(true);
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("TIMEOUT")), 5000)
+      setTimeout(() => reject(new Error("TIMEOUT")), 8000) // Increased for AI extraction
     );
 
     try {
       const completionTimeMs = Date.now() - startTime;
       
+      // 1. EXTRACT STRUCTURED DATA FROM CHAT HISTORY
+      const chatSummary = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+      const extractionPrompt = `You are a data extraction bot. Below is a transcript of a clinical intake conversation.
+Extract the following fields into a valid JSON object. If a field was not mentioned, use "N/A".
+
+Fields:
+- name
+- dob
+- sex
+- reasonForVisit
+- duration
+- painLevel (as a number 1-10)
+- medications
+- allergies
+- familyHistory
+
+Transcript:
+${chatSummary}
+
+Return ONLY the JSON object.`;
+
+      const extractRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: extractionPrompt, history: [] })
+      });
+      
+      const extractData = await extractRes.json();
+      let formData = {};
+      try {
+        // Find the JSON block in the AI response
+        const jsonMatch = extractData.text.match(/\{[\s\S]*\}/);
+        formData = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+      } catch (e) {
+        console.error("AI Extraction Parsing Error:", e);
+      }
+
+      // 2. SAVE TO FIRESTORE
       await Promise.race([
         addDoc(collection(db, "survey_responses"), {
           studyId,
           interface: 'chatbot',
           personaId: currentPersona.id,
           chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
+          formData, // Now we have actual data fields!
           completionTimeMs,
           timestamp: serverTimestamp()
         }),
