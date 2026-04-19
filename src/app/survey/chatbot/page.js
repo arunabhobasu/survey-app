@@ -68,24 +68,43 @@ export default function ChatbotInterface() {
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleContinue = async () => {
-    if (!currentPersona) return;
+    if (!currentPersona || isSubmitting) return;
     
+    setIsSubmitting(true);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("TIMEOUT")), 5000)
+    );
+
     try {
       const completionTimeMs = Date.now() - startTime;
-      await addDoc(collection(db, "survey_responses"), {
-        interface: 'chatbot',
-        personaId: currentPersona.id,
-        chatHistory: messages,
-        completionTimeMs,
-        timestamp: serverTimestamp()
-      });
+      
+      await Promise.race([
+        addDoc(collection(db, "survey_responses"), {
+          interface: 'chatbot',
+          personaId: currentPersona.id,
+          chatHistory: messages.map(m => ({ role: m.role, content: m.content })),
+          completionTimeMs,
+          timestamp: serverTimestamp()
+        }),
+        timeoutPromise
+      ]);
 
       markPersonaAsUsed(currentPersona.id);
       router.push('/survey/ai-enhanced');
     } catch (error) {
-      console.error("Error saving chatbot response:", error);
-      alert("Error saving response. Please try again.");
+      console.error("Submission Issue:", error);
+      if (error.message === "TIMEOUT") {
+        console.warn("Database hanging. Proceeding with Safety-Pass...");
+        markPersonaAsUsed(currentPersona.id);
+        router.push('/survey/ai-enhanced');
+      } else {
+        alert("DATABASE ERROR: " + error.message);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -130,7 +149,8 @@ export default function ChatbotInterface() {
               ...(msg.role === 'user'
                 ? { backgroundColor: 'var(--primary)', color: 'white', borderBottomRightRadius: '0.25rem' }
                 : { backgroundColor: 'var(--card-bg)', border: '1px solid var(--border)', color: 'var(--foreground)', borderBottomLeftRadius: '0.25rem' }
-              )
+              ),
+              whiteSpace: 'pre-wrap'
             }}>
               {msg.content}
             </div>
@@ -195,8 +215,8 @@ export default function ChatbotInterface() {
           borderRadius: '0.5rem'
         }}>
           <p style={{ color: 'var(--success)', fontWeight: 500, marginBottom: '0.75rem' }}>Intake complete! Thank you.</p>
-          <button onClick={handleContinue} className="btn btn-primary">
-            Continue to Next Interface →
+          <button onClick={handleContinue} className="btn btn-primary" disabled={isSubmitting} style={{ opacity: isSubmitting ? 0.5 : 1 }}>
+            {isSubmitting ? 'Saving...' : 'Continue to Next Interface →'}
           </button>
         </div>
       )}
