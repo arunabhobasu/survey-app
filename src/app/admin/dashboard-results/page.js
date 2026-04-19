@@ -6,40 +6,111 @@ import { collection, getDocs, query, orderBy, deleteDoc, doc, where, writeBatch,
 import * as XLSX from 'xlsx';
 
 export default function AdminDashboard() {
-  const [studies, setStudies] = useState({}); // Grouped by studyId
+  const [studies, setStudies] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('individual');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
-  const [analysisLog, setAnalysisLog] = useState("");
+  const [analysisStatus, setAnalysisStatus] = useState("");
+  const [debugLog, setDebugLog] = useState([]);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  const addLog = (msg) => setDebugLog(prev => [msg, ...prev].slice(0, 5));
 
   async function fetchData() {
     setLoading(true);
     try {
       const snap = await getDocs(query(collection(db, 'survey_responses'), orderBy('timestamp', 'desc')));
       const rawDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
       const grouped = {};
       rawDocs.forEach(doc => {
         const sid = doc.studyId || `legacy_${doc.id}`;
         if (!grouped[sid]) grouped[sid] = {};
         grouped[sid][doc.interface] = doc;
       });
-      
       setStudies(grouped);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      addLog("Fetch Error: " + error.message);
     } finally {
       setLoading(false);
     }
   }
 
+  const runAIAnalysis = async () => {
+    setIsProcessingAI(true);
+    setAnalysisStatus("Initializing AI...");
+    setDebugLog([]);
+    
+    const studyEntries = Object.entries(studies);
+    const updatedStudies = { ...studies };
+
+    for (const [sid, data] of studyEntries) {
+      setAnalysisStatus(`Analyzing: ${sid}`);
+      
+      for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
+        const entry = data[intName];
+        if (entry && entry.id && entry.personaId) {
+          try {
+            const facts = intName === 'chatbot' ? { chat: entry.chatHistory, extracted: entry.formData } : entry.formData;
+            
+            const res = await fetch('/api/admin/analyze', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData: facts } })
+            });
+            
+            if (!res.ok) throw new Error(`API Error: ${res.status}`);
+            
+            const result = await res.json();
+            addLog(`Success ${sid}: ${result.errorRatePercent}%`);
+
+            if (result.errorRatePercent !== undefined) {
+              // Update state immediately
+              updatedStudies[sid][intName] = { ...entry, errorRatePercent: result.errorRatePercent, details: result.details };
+              setStudies({ ...updatedStudies });
+              
+              // Save to DB
+              await updateDoc(doc(db, 'survey_responses', entry.id), { 
+                errorRatePercent: result.errorRatePercent,
+                details: result.details || ""
+              });
+            }
+          } catch (err) {
+            addLog(`Error ${sid}: ${err.message}`);
+          }
+        }
+      }
+
+      // Qualitative Feedback
+      const postSurvey = data['post-survey'];
+      if (postSurvey && postSurvey.id && postSurvey.responses?.openEndedFeedback) {
+        try {
+          const res = await fetch('/api/admin/analyze', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'bold_keywords', payload: { text: postSurvey.responses.openEndedFeedback } })
+          });
+          const result = await res.json();
+          if (result.text) {
+            updatedStudies[sid]['post-survey'].responses.highlightedFeedback = result.text;
+            setStudies({ ...updatedStudies });
+            await updateDoc(doc(db, 'survey_responses', postSurvey.id), { 
+              'responses.highlightedFeedback': result.text 
+            });
+          }
+        } catch (err) {
+          addLog("Qualitative Error: " + err.message);
+        }
+      }
+    }
+
+    setAnalysisStatus("");
+    setIsProcessingAI(false);
+    alert("Analysis Process Finished.");
+  };
+
   const handleWipeDatabase = async () => {
     if (!confirm("⚠️ NUCLEAR OPTION: Are you sure?")) return;
-    if (!confirm("FINAL CONFIRMATION: Are you absolutely sure?")) return;
     setIsProcessingAI(true);
     try {
       const snap = await getDocs(collection(db, 'survey_responses'));
@@ -48,137 +119,42 @@ export default function AdminDashboard() {
       await batch.commit();
       setStudies({});
       alert("Database wiped.");
-    } catch (error) {
-      alert("Wipe failed: " + error.message);
     } finally {
       setIsProcessingAI(false);
-    }
-  };
-
-  const handleDelete = async (sid, data) => {
-    const name = data.traditional?.formData?.name || data.chatbot?.formData?.name || "this participant";
-    if (!confirm(`Are you sure you want to delete ALL data for ${name}?`)) return;
-    try {
-      const batch = writeBatch(db);
-      let docsToDelete = [];
-      if (sid && !sid.startsWith('legacy_')) {
-        const q = query(collection(db, 'survey_responses'), where('studyId', '==', sid));
-        const snap = await getDocs(q);
-        docsToDelete = snap.docs;
-      } else {
-        const docId = sid.startsWith('legacy_') ? sid.replace('legacy_', '') : sid;
-        const d = await getDocs(query(collection(db, 'survey_responses'), where('__name__', '==', docId)));
-        docsToDelete = d.docs;
-      }
-      docsToDelete.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      fetchData();
-      alert(`Deleted ${docsToDelete.length} records.`);
-    } catch (error) {
-      alert("Delete failed: " + error.message);
     }
   };
 
   const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
-    const interfaces = ['traditional', 'chatbot', 'ai-enhanced'];
-    interfaces.forEach(intName => {
+    ['traditional', 'chatbot', 'ai-enhanced'].forEach(intName => {
       const rows = Object.entries(studies).map(([sid, data]) => {
         const entry = data[intName];
         if (!entry) return null;
-        return {
-          StudyID: sid,
-          Name: entry.formData?.name || "Unknown",
-          PersonaID: entry.personaId,
-          TimeSeconds: (entry.completionTimeMs / 1000).toFixed(1),
-          Timestamp: entry.timestamp?.toDate().toLocaleString(),
-          ...entry.formData
-        };
+        return { StudyID: sid, Name: entry.formData?.name || "Unknown", PersonaID: entry.personaId, ErrorRate: entry.errorRatePercent, ...entry.formData };
       }).filter(Boolean);
-      if (rows.length > 0) {
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        XLSX.utils.book_append_sheet(workbook, worksheet, intName.toUpperCase());
-      }
+      if (rows.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), intName.toUpperCase());
     });
-    XLSX.writeFile(workbook, `Survey_Results_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(workbook, `Study_Results.xlsx`);
   };
 
-  const runAIAnalysis = async () => {
-    setIsProcessingAI(true);
-    setAnalysisLog("Starting full analysis...");
-    try {
-      const updatedStudies = { ...studies };
-      const batchPromises = [];
-
-      for (const [sid, data] of Object.entries(updatedStudies)) {
-        setAnalysisLog(`Analyzing Study: ${sid}...`);
-        
-        for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
-          const entry = data[intName];
-          if (entry && entry.id && entry.personaId) {
-            let facts = intName === 'chatbot' ? { chat: entry.chatHistory, extracted: entry.formData } : entry.formData;
-            
-            const res = await fetch('/api/admin/analyze', {
-              method: 'POST',
-              body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData: facts } })
-            });
-            const result = await res.json();
-            
-            if (result.errorRatePercent !== undefined) {
-              entry.errorRatePercent = result.errorRatePercent;
-              entry.details = result.details;
-              batchPromises.push(updateDoc(doc(db, 'survey_responses', entry.id), { 
-                errorRatePercent: result.errorRatePercent,
-                details: result.details || ""
-              }));
-            }
-          }
-        }
-
-        const postSurvey = data['post-survey'];
-        if (postSurvey && postSurvey.id && postSurvey.responses?.openEndedFeedback) {
-          const res = await fetch('/api/admin/analyze', {
-            method: 'POST',
-            body: JSON.stringify({ action: 'bold_keywords', payload: { text: postSurvey.responses.openEndedFeedback } })
-          });
-          const result = await res.json();
-          if (result.text) {
-            postSurvey.responses.highlightedFeedback = result.text;
-            batchPromises.push(updateDoc(doc(db, 'survey_responses', postSurvey.id), { 
-              'responses.highlightedFeedback': result.text 
-            }));
-          }
-        }
-      }
-
-      await Promise.all(batchPromises);
-      setStudies({ ...updatedStudies });
-      setAnalysisLog("");
-      alert(`Analysis Complete: ${batchPromises.length} updates saved.`);
-    } catch (error) {
-      console.error("Analysis Error:", error);
-      alert("Analysis failed. Check console.");
-    } finally {
-      setIsProcessingAI(false);
-      setAnalysisLog("");
-    }
-  };
-
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading...</div>;
+  if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading Database...</div>;
   const studyIds = Object.keys(studies);
 
   return (
     <div style={{ maxWidth: '90rem', margin: '0 auto', padding: '2rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800 }}>Researcher Dashboard</h1>
-          {analysisLog && <p style={{ color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600 }}>{analysisLog}</p>}
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+            {analysisStatus && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>🔄 {analysisStatus}</span>}
+            {debugLog.length > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Last: {debugLog[0]}</span>}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button onClick={handleWipeDatabase} className="btn" style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border:'none' }}>Wipe</button>
-          <button onClick={runAIAnalysis} disabled={isProcessingAI} className="btn" style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border:'none' }}>{isProcessingAI ? 'Analyzing...' : 'Analyze'}</button>
-          <button onClick={exportToExcel} className="btn" style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border:'none' }}>Export</button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Wipe</button>
+          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', opacity: isProcessingAI ? 0.5 : 1 }}>{isProcessingAI ? 'Running...' : 'Analyze Data'}</button>
+          <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Export</button>
         </div>
       </div>
 
@@ -192,32 +168,6 @@ export default function AdminDashboard() {
       {/* INDIVIDUAL TAB */}
       {activeTab === 'individual' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-          <section>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>📋 Master Participant List</h2>
-            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '0.75rem 1rem' }}>Study ID</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>Date & Time</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {studyIds.map(sid => (
-                    <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}>{studies[sid].traditional?.timestamp?.toDate().toLocaleString() || studies[sid].chatbot?.timestamp?.toDate().toLocaleString() || "Unknown"}</td>
-                      <td style={{ padding: '0.75rem 1rem' }}><span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '1rem', backgroundColor: Object.keys(studies[sid]).length >= 4 ? '#10b98122' : '#f59e0b22', color: Object.keys(studies[sid]).length >= 4 ? '#10b981' : '#f59e0b', fontWeight: 700 }}>{Object.keys(studies[sid]).length}/4 Steps</span></td>
-                      <td style={{ padding: '0.75rem 1rem' }}><button onClick={() => handleDelete(sid, studies[sid])} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Delete All</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
           {['traditional', 'chatbot', 'ai-enhanced'].map(intName => (
             <section key={intName}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', textTransform: 'capitalize' }}>{intName.replace('-', ' ')} Data</h2>
@@ -225,41 +175,29 @@ export default function AdminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                   <thead>
                     <tr style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '0.75rem 0.5rem', minWidth: '120px' }}>Name</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Study ID</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>DOB</th>
-                      <th style={{ padding: '0.75rem 0.5rem' }}>Sex</th>
-                      <th style={{ padding: '0.75rem 0.5rem', minWidth: '150px' }}>Reason</th>
-                      <th style={{ padding: '0.75rem 0.5rem' }}>Dur.</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Reason</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Pain</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Meds</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Allergies</th>
-                      <th style={{ padding: '0.75rem 0.5rem' }}>Family Hx</th>
                     </tr>
                   </thead>
                   <tbody>
                     {studyIds.map(sid => {
                       const entry = studies[sid][intName];
                       if (!entry) return null;
-                      
-                      let f = entry.formData || {};
-                      if (intName === 'chatbot' && (!f.name || f.name === 'N/A')) {
-                        const history = entry.chatHistory || [];
-                        const firstUserMsg = history.find(m => m.role === 'user')?.content;
-                        if (firstUserMsg) f.name = firstUserMsg.split(' ').slice(0, 3).join(' ');
-                        f.reasonForVisit = "See Export for History";
-                      }
-
+                      const f = entry.formData || {};
                       return (
                         <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
                           <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600 }}>{f.name || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.dob || "N/A"}</td>
-                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.sex || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.reasonForVisit || "N/A"}</td>
-                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.duration || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.painLevel ?? "N/A"}/10</td>
-                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.medications || "N/A"}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.allergies || "N/A"}</td>
-                          <td style={{ padding: '0.75rem 0.5rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.familyHistory || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.medications || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.allergies || "N/A"}</td>
                         </tr>
                       );
                     })}
@@ -275,28 +213,7 @@ export default function AdminDashboard() {
       {activeTab === 'quantitative' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
           <section>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Completion Times (Seconds)</h2>
-            <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                  <tr><th style={{ padding: '1rem' }}>Study ID</th><th style={{ padding: '1rem' }}>Traditional</th><th style={{ padding: '1rem' }}>Chatbot</th><th style={{ padding: '1rem' }}>AI-Enhanced</th></tr>
-                </thead>
-                <tbody>
-                  {studyIds.map(sid => (
-                    <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid].traditional ? (studies[sid].traditional.completionTimeMs/1000).toFixed(1) : '-'}</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid].chatbot ? (studies[sid].chatbot.completionTimeMs/1000).toFixed(1) : '-'}</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid]['ai-enhanced'] ? (studies[sid]['ai-enhanced'].completionTimeMs/1000).toFixed(1) : '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Error Rate (%)</h2>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Error Rate (%) — Hover for Details</h2>
             <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
@@ -307,8 +224,10 @@ export default function AdminDashboard() {
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
                       {['traditional', 'chatbot', 'ai-enhanced'].map(int => (
-                        <td key={int} style={{ padding: '1rem' }} title={studies[sid][int]?.details || "No details"}>
-                          {studies[sid][int]?.errorRatePercent !== undefined ? `${studies[sid][int].errorRatePercent.toFixed(1)}%` : '-'}
+                        <td key={int} style={{ padding: '1rem' }}>
+                          <div title={studies[sid][int]?.details || "No details available"} style={{ cursor: 'help', textDecoration: 'underline dotted', display: 'inline-block' }}>
+                            {studies[sid][int]?.errorRatePercent !== undefined ? `${studies[sid][int].errorRatePercent.toFixed(1)}%` : '-'}
+                          </div>
                         </td>
                       ))}
                     </tr>
@@ -323,13 +242,10 @@ export default function AdminDashboard() {
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>Usability Score (1-5)</h2>
               <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                    <tr><th style={{ padding: '0.75rem' }}>Study ID</th><th style={{ padding: '0.75rem' }}>T</th><th style={{ padding: '0.75rem' }}>C</th><th style={{ padding: '0.75rem' }}>E</th></tr>
-                  </thead>
                   <tbody>
                     {studyIds.map(sid => (
                       <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
+                        <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.usabilityTraditional || '-'}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.usabilityChatbot || '-'}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.usabilityAIEnhanced || '-'}</td>
@@ -343,13 +259,10 @@ export default function AdminDashboard() {
               <h2 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>Trust Score (1-5)</h2>
               <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                    <tr><th style={{ padding: '0.75rem' }}>Study ID</th><th style={{ padding: '0.75rem' }}>T</th><th style={{ padding: '0.75rem' }}>C</th><th style={{ padding: '0.75rem' }}>E</th></tr>
-                  </thead>
                   <tbody>
                     {studyIds.map(sid => (
                       <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
+                        <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.trustTraditional || '-'}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.trustChatbot || '-'}</td>
                         <td style={{ padding: '0.75rem' }}>{studies[sid]['post-survey']?.responses?.trustAIEnhanced || '-'}</td>
@@ -369,9 +282,6 @@ export default function AdminDashboard() {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>Participant Feedback</h2>
           <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '0.75rem', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
-                <tr><th style={{ padding: '1rem', width: '250px' }}>Study ID</th><th style={{ padding: '1rem' }}>Feedback</th></tr>
-              </thead>
               <tbody>
                 {studyIds.map(sid => {
                   const post = studies[sid]['post-survey']?.responses;
@@ -395,6 +305,14 @@ export default function AdminDashboard() {
             </table>
           </div>
         </section>
+      )}
+
+      {/* DEBUG CONSOLE */}
+      {debugLog.length > 0 && (
+        <div style={{ marginTop: '3rem', padding: '1rem', backgroundColor: '#1e293b', color: '#94a3b8', borderRadius: '0.5rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+          <div style={{ fontWeight: 700, marginBottom: '0.5rem', color: '#f8fafc' }}>DEBUG LOG</div>
+          {debugLog.map((log, i) => <div key={i}>{log}</div>)}
+        </div>
       )}
     </div>
   );
