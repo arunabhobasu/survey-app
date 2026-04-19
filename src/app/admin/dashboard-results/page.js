@@ -119,9 +119,13 @@ export default function AdminDashboard() {
             
             if (result.errorRatePercent !== undefined) {
               entry.errorRatePercent = result.errorRatePercent;
+              entry.details = result.details;
               // Save to Firestore
               const { updateDoc, doc } = await import('firebase/firestore');
-              batch.push(updateDoc(doc(db, 'survey_responses', entry.id), { errorRatePercent: result.errorRatePercent }));
+              batch.push(updateDoc(doc(db, 'survey_responses', entry.id), { 
+                errorRatePercent: result.errorRatePercent,
+                details: result.details || "No specific details provided."
+              }));
             }
           }
         }
