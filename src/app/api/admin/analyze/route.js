@@ -15,8 +15,8 @@ export async function POST(req) {
 
       if (!persona) return Response.json({ error: 'Persona not found' }, { status: 404 });
 
-      const prompt = `CRITICAL AUDIT TASK: Compare "Submitted Data" against "Target Persona". 
-You are a paranoid medical auditor. You MUST find any factual discrepancies.
+      const prompt = `CRITICAL AUDIT TASK: Compare "Submitted Data" against "Target Persona".
+You are an intelligent clinical auditor. Catch FACTUAL errors, but ignore "Stupid" formatting differences.
 
 TARGET PERSONA:
 ${JSON.stringify(persona, null, 2)}
@@ -24,37 +24,21 @@ ${JSON.stringify(persona, null, 2)}
 SUBMITTED DATA:
 ${JSON.stringify(submittedData, null, 2)}
 
-AUDIT STEPS:
-1. Compare "name": Do they match exactly? (Ignore casing/punctuation)
-2. Compare "dob": Is the date identical?
-3. Compare "sex": Is it the same?
-4. Compare "reasonForVisit": Are the symptoms/complaints factually the same?
-5. Compare "duration": Is the timeframe identical?
-6. Compare "painLevel": Is the number identical?
-7. Compare "medications": Are the drug names and dosages the same?
-8. Compare "allergies": Are the allergies identical?
-9. Compare "familyHistory": Are the family medical details identical?
+INTELLIGENT AUDIT RULES:
+- IGNORE Type Mismatches: "8" (string) is the SAME as 8 (number).
+- IGNORE Phrasing: "None", "N/A", "None known", "No known allergies" are all IDENTICAL.
+- IGNORE Missing Dosage: If the Medication Name matches, it is OK even if the dosage is missing (only flag if the dosage is WRONG).
+- IGNORE Minor Suffixes: "3 days" is the same as "3 days duration".
+- FOCUS ON: Wrong names, wrong dates, wrong symptoms, different pain levels, or completely different drugs.
 
-SCORING:
-- Each field is worth 1 point. 
-- If a field is missing or different, it is 0 points.
-- If it is a perfect match, it is 1 point.
+SCORING (9 Fields):
+1. name, 2. dob, 3. sex, 4. reasonForVisit, 5. duration, 6. painLevel, 7. medications, 8. allergies, 9. familyHistory
 
 Return ONLY this JSON:
 {
-  "scorecard": {
-    "name": "MATCH or MISMATCH",
-    "dob": "MATCH or MISMATCH",
-    "sex": "MATCH or MISMATCH",
-    "reasonForVisit": "MATCH or MISMATCH",
-    "duration": "MATCH or MISMATCH",
-    "painLevel": "MATCH or MISMATCH",
-    "medications": "MATCH or MISMATCH",
-    "allergies": "MATCH or MISMATCH",
-    "familyHistory": "MATCH or MISMATCH"
-  },
+  "scorecard": { ...MATCH or MISMATCH for each... },
   "errorRatePercent": [Calculated as: (Mismatches / 9) * 100],
-  "details": "[Briefly list why each mismatch occurred]"
+  "details": "[Explain only the REAL factual errors found]"
 }`;
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
