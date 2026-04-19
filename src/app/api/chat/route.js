@@ -25,21 +25,39 @@ export async function POST(req) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     // Construct history for Gemini API
-    const contents = (history || [])
+    const rawContents = (history || [])
       .map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }]
-      }))
-      .filter((msg, index) => {
-        if (index === 0 && msg.role === 'model') return false;
-        return true;
-      });
+      }));
 
-    // Add the current message
-    contents.push({
+    rawContents.push({
       role: 'user',
       parts: [{ text: message }]
     });
+
+    // Gemini strictly requires alternating user/model roles starting with user.
+    // If the UI state gets corrupted (e.g., two "Sorry..." errors in a row), Gemini throws a 400 error.
+    const contents = [];
+    let expectedRole = 'user';
+    
+    for (const msg of rawContents) {
+      if (msg.role === expectedRole) {
+        contents.push(msg);
+        expectedRole = expectedRole === 'user' ? 'model' : 'user';
+      } else if (contents.length > 0) {
+        // If we get an unexpected role (like two users in a row), we append the text to the last message of the same role
+        // OR we just skip the broken message to keep the sequence valid.
+        if (msg.role === contents[contents.length - 1].role) {
+           contents[contents.length - 1].parts[0].text += `\n\n${msg.parts[0].text}`;
+        }
+      }
+    }
+
+    // If somehow it still starts with a model, remove it
+    if (contents.length > 0 && contents[0].role === 'model') {
+      contents.shift();
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
