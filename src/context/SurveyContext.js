@@ -16,9 +16,10 @@ export function SurveyProvider({ children }) {
     setStudyId(`study_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   }, []);
 
-  // Initialize personas
+  // Initialize personas with shuffle
   useEffect(() => {
-    setAvailablePersonas(personasData);
+    const shuffled = [...personasData].sort(() => Math.random() - 0.5);
+    setAvailablePersonas(shuffled);
   }, []);
 
   const selectRandomPersona = () => {
