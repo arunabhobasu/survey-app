@@ -66,7 +66,8 @@ Return ONLY this JSON:
         },
         body: JSON.stringify({
           model: 'claude-3-5-haiku-20241022',
-          max_tokens: 300,
+          max_tokens: 1000,
+          system: "You are a data validation service. Output ONLY valid JSON. No preamble, no explanation.",
           messages: [{ role: 'user', content: prompt }]
         })
       });
@@ -75,10 +76,24 @@ Return ONLY this JSON:
       const text = data.content?.[0]?.text || '';
       
       // Robust JSON extraction
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return Response.json({ errorRatePercent: 0, details: "Parse failed" });
+      let jsonStr = "";
+      const codeBlockMatch = text.match(/```json\s?([\s\S]*?)```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1];
+      } else {
+        const braceMatch = text.match(/\{[\s\S]*\}/);
+        if (braceMatch) jsonStr = braceMatch[0];
+      }
+
+      if (!jsonStr) {
+        return Response.json({ errorRatePercent: 0, details: "AI Response format invalid: " + text.slice(0,50) });
+      }
       
-      return Response.json(JSON.parse(jsonMatch[0]));
+      try {
+        return Response.json(JSON.parse(jsonStr));
+      } catch (e) {
+        return Response.json({ errorRatePercent: 0, details: "JSON Parse Error: " + text.slice(0,50) });
+      }
     }
 
     if (action === 'bold_keywords') {
