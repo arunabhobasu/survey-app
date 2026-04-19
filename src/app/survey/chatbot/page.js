@@ -10,7 +10,7 @@ export default function ChatbotInterface() {
   const { currentPersona, markPersonaAsUsed } = useSurvey();
   const router = useRouter();
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm your AI intake assistant. To get started, could you please tell me your full name and date of birth?" }
+    { role: 'assistant', content: "Hello! I'm your AI intake assistant. To get started, could you please tell me your full name?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
