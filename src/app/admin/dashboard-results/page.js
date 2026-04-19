@@ -11,13 +11,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('individual');
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState("");
-  const [debugLog, setDebugLog] = useState([]);
 
   useEffect(() => {
     fetchData();
   }, []);
-
-  const addLog = (msg) => setDebugLog(prev => [msg, ...prev].slice(0, 5));
 
   async function fetchData() {
     setLoading(true);
@@ -32,7 +29,7 @@ export default function AdminDashboard() {
       });
       setStudies(grouped);
     } catch (error) {
-      addLog("Fetch Error: " + error.message);
+      console.error("Fetch Error:", error);
     } finally {
       setLoading(false);
     }
@@ -40,49 +37,37 @@ export default function AdminDashboard() {
 
   const runAIAnalysis = async () => {
     setIsProcessingAI(true);
-    setAnalysisStatus("Initializing AI...");
-    setDebugLog([]);
+    setAnalysisStatus("Analyzing data...");
     
     const studyEntries = Object.entries(studies);
     const updatedStudies = { ...studies };
 
     for (const [sid, data] of studyEntries) {
-      setAnalysisStatus(`Analyzing: ${sid}`);
+      setAnalysisStatus(`Processing: ${sid}`);
       
       for (const intName of ['traditional', 'chatbot', 'ai-enhanced']) {
         const entry = data[intName];
         if (entry && entry.id && entry.personaId) {
           try {
             const facts = intName === 'chatbot' ? { chat: entry.chatHistory, extracted: entry.formData } : entry.formData;
-            
             const res = await fetch('/api/admin/analyze', {
               method: 'POST',
               body: JSON.stringify({ action: 'calculate_error_rate', payload: { personaId: entry.personaId, submittedData: facts } })
             });
-            
-            if (!res.ok) throw new Error(`API Error: ${res.status}`);
-            
             const result = await res.json();
-            addLog(`Success ${sid}: ${result.errorRatePercent}%`);
 
             if (result.errorRatePercent !== undefined) {
-              // Update state immediately
               updatedStudies[sid][intName] = { ...entry, errorRatePercent: result.errorRatePercent, details: result.details };
               setStudies({ ...updatedStudies });
-              
-              // Save to DB
               await updateDoc(doc(db, 'survey_responses', entry.id), { 
                 errorRatePercent: result.errorRatePercent,
                 details: result.details || ""
               });
             }
-          } catch (err) {
-            addLog(`Error ${sid}: ${err.message}`);
-          }
+          } catch (err) { console.error(err); }
         }
       }
 
-      // Qualitative Feedback
       const postSurvey = data['post-survey'];
       if (postSurvey && postSurvey.id && postSurvey.responses?.openEndedFeedback) {
         try {
@@ -98,15 +83,13 @@ export default function AdminDashboard() {
               'responses.highlightedFeedback': result.text 
             });
           }
-        } catch (err) {
-          addLog("Qualitative Error: " + err.message);
-        }
+        } catch (err) { console.error(err); }
       }
     }
 
     setAnalysisStatus("");
     setIsProcessingAI(false);
-    alert("Analysis Process Finished.");
+    alert("Full Analysis Complete.");
   };
 
   const handleWipeDatabase = async () => {
@@ -126,15 +109,49 @@ export default function AdminDashboard() {
 
   const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
+    
+    // 1. Raw Response Sheets for each Interface
     ['traditional', 'chatbot', 'ai-enhanced'].forEach(intName => {
       const rows = Object.entries(studies).map(([sid, data]) => {
         const entry = data[intName];
         if (!entry) return null;
-        return { StudyID: sid, Name: entry.formData?.name || "Unknown", PersonaID: entry.personaId, ErrorRate: entry.errorRatePercent, ...entry.formData };
+        return { 
+          StudyID: sid, 
+          Name: entry.formData?.name || "Unknown", 
+          PersonaID: entry.personaId, 
+          CompletionTimeSeconds: (entry.completionTimeMs / 1000).toFixed(1),
+          ErrorRate: entry.errorRatePercent ? `${entry.errorRatePercent}%` : "0%",
+          AnalysisDetails: entry.details || "",
+          Timestamp: entry.timestamp?.toDate().toLocaleString(),
+          ...entry.formData 
+        };
       }).filter(Boolean);
       if (rows.length > 0) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), intName.toUpperCase());
     });
-    XLSX.writeFile(workbook, `Study_Results.xlsx`);
+
+    // 2. Comprehensive Analytics Sheet
+    const analyticsRows = Object.entries(studies).map(([sid, data]) => {
+      const post = data['post-survey']?.responses || {};
+      return {
+        StudyID: sid,
+        "Time (Trad)": data.traditional ? (data.traditional.completionTimeMs/1000).toFixed(1) : "-",
+        "Time (Chat)": data.chatbot ? (data.chatbot.completionTimeMs/1000).toFixed(1) : "-",
+        "Time (AI)": data['ai-enhanced'] ? (data['ai-enhanced'].completionTimeMs/1000).toFixed(1) : "-",
+        "Error (Trad)": data.traditional?.errorRatePercent ? `${data.traditional.errorRatePercent}%` : "-",
+        "Error (Chat)": data.chatbot?.errorRatePercent ? `${data.chatbot.errorRatePercent}%` : "-",
+        "Error (AI)": data['ai-enhanced']?.errorRatePercent ? `${data['ai-enhanced'].errorRatePercent}%` : "-",
+        "Usability (Trad)": post.usabilityTraditional || "-",
+        "Usability (Chat)": post.usabilityChatbot || "-",
+        "Usability (AI)": post.usabilityAIEnhanced || "-",
+        "Trust (Trad)": post.trustTraditional || "-",
+        "Trust (Chat)": post.trustChatbot || "-",
+        "Trust (AI)": post.trustAIEnhanced || "-",
+        "Qualitative Feedback": post.openEndedFeedback || "N/A"
+      };
+    });
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(analyticsRows), "SUMMARY_ANALYTICS");
+
+    XLSX.writeFile(workbook, `Clinical_Study_Data_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   if (loading) return <div style={{ padding: '4rem', textAlign: 'center' }}>Loading Database...</div>;
@@ -146,15 +163,12 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800 }}>Researcher Dashboard</h1>
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-            {analysisStatus && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>🔄 {analysisStatus}</span>}
-            {debugLog.length > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Last: {debugLog[0]}</span>}
-          </div>
+          {analysisStatus && <p style={{ color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.5rem' }}>🔄 {analysisStatus}</p>}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Wipe</button>
-          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', opacity: isProcessingAI ? 0.5 : 1 }}>{isProcessingAI ? 'Running...' : 'Analyze Data'}</button>
-          <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}>Export</button>
+          <button onClick={handleWipeDatabase} style={{ backgroundColor: '#ef4444', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(239,68,68,0.2)' }}>Wipe</button>
+          <button onClick={runAIAnalysis} disabled={isProcessingAI} style={{ backgroundColor: 'var(--accent)', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', opacity: isProcessingAI ? 0.5 : 1, boxShadow: '0 4px 14px rgba(168,85,247,0.3)' }}>{isProcessingAI ? 'Running...' : 'Analyze'}</button>
+          <button onClick={exportToExcel} style={{ backgroundColor: '#10b981', color: 'white', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}>Export Excel</button>
         </div>
       </div>
 
@@ -177,11 +191,11 @@ export default function AdminDashboard() {
                     <tr style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Study ID</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Name</th>
-                      <th style={{ padding: '0.75rem 0.5rem' }}>DOB</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Reason</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Pain</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Meds</th>
                       <th style={{ padding: '0.75rem 0.5rem' }}>Allergies</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>Analysis</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -193,11 +207,15 @@ export default function AdminDashboard() {
                         <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
                           <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600 }}>{f.name || "N/A"}</td>
-                          <td style={{ padding: '0.75rem 0.5rem' }}>{f.dob || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.reasonForVisit || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.painLevel ?? "N/A"}/10</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.medications || "N/A"}</td>
                           <td style={{ padding: '0.75rem 0.5rem' }}>{f.allergies || "N/A"}</td>
+                          <td style={{ padding: '0.75rem 0.5rem' }}>
+                            <div title={entry.details || "No errors detected"} style={{ fontSize: '0.7rem', color: entry.errorRatePercent > 0 ? '#ef4444' : '#10b981', fontWeight: 700 }}>
+                              {entry.errorRatePercent !== undefined ? `${entry.errorRatePercent.toFixed(0)}% Error` : "Not Analyzed"}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -310,7 +328,7 @@ export default function AdminDashboard() {
                   const feedback = post.highlightedFeedback || post.openEndedFeedback;
                   return (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
+                      <td style={{ padding: '1rem', width: '200px', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
                       <td style={{ padding: '1rem', lineHeight: '1.6' }}>
                         {feedback.split(/(\*\*.*?\*\*)/g).map((part, index) => {
                           if (part.startsWith('**') && part.endsWith('**')) {
@@ -326,14 +344,6 @@ export default function AdminDashboard() {
             </table>
           </div>
         </section>
-      )}
-
-      {/* DEBUG CONSOLE */}
-      {debugLog.length > 0 && (
-        <div style={{ marginTop: '3rem', padding: '1rem', backgroundColor: '#1e293b', color: '#94a3b8', borderRadius: '0.5rem', fontFamily: 'monospace', fontSize: '0.75rem' }}>
-          <div style={{ fontWeight: 700, marginBottom: '0.5rem', color: '#f8fafc' }}>DEBUG LOG</div>
-          {debugLog.map((log, i) => <div key={i}>{log}</div>)}
-        </div>
       )}
     </div>
   );
