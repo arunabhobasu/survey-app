@@ -44,19 +44,30 @@ Return ONLY a JSON object with this format:
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 200,
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 300,
           messages: [{ role: 'user', content: prompt }]
         })
       });
 
       const data = await res.json();
-      const text = data.content?.[0]?.text;
-      return Response.json(JSON.parse(text || '{}'));
+      const text = data.content?.[0]?.text || '';
+      
+      // Robust JSON extraction
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return Response.json({ errorRatePercent: 0, details: "Parse failed" });
+      
+      return Response.json(JSON.parse(jsonMatch[0]));
     }
 
     if (action === 'bold_keywords') {
       const { text } = payload;
+      
+      // SKIP ANALYSIS IF BLANK OR TOO SHORT
+      if (!text || text.trim().length < 5) {
+        return Response.json({ text: text || '' });
+      }
+
       const prompt = `Identify the 3-5 most important keywords or short phrases in the following user feedback that indicate their sentiment or specific frustration/praise.
 Wrap these keywords in double asterisks like **this**.
 
@@ -72,7 +83,7 @@ Return ONLY the modified text. Do not add any preamble or quotes.`;
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5',
+          model: 'claude-3-5-haiku-20241022',
           max_tokens: 500,
           messages: [{ role: 'user', content: prompt }]
         })
