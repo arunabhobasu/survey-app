@@ -203,8 +203,19 @@ export default function AdminDashboard() {
                   </thead>
                   <tbody>
                     {studyIds.map(sid => {
-                      const f = studies[sid][intName]?.formData || {};
-                      if (!studies[sid][intName]) return null;
+                      const entry = studies[sid][intName];
+                      if (!entry) return null;
+                      
+                      // FALLBACK: If formData is missing (legacy data), try to recover from chat history
+                      let f = entry.formData || {};
+                      if (intName === 'chatbot' && (!f.name || f.name === 'N/A')) {
+                        const history = entry.chatHistory || [];
+                        // Try to find the user's name in the first user response
+                        const firstUserMsg = history.find(m => m.role === 'user')?.content;
+                        if (firstUserMsg) f.name = firstUserMsg.split(' ').slice(0, 3).join(' '); // Rough name guess
+                        f.reasonForVisit = "Chat History Available (Use Export)";
+                      }
+
                       return (
                         <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '0.75rem 0.5rem', fontWeight: 600 }}>{f.name || "N/A"}</td>
