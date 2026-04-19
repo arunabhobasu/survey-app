@@ -15,8 +15,7 @@ export async function POST(req) {
 
       if (!persona) return Response.json({ error: 'Persona not found' }, { status: 404 });
 
-      const prompt = `You are a strict data auditor for a high-fidelity clinical research study.
-Compare the "Submitted Data" against the "Target Persona" profile. Your goal is to identify factual errors.
+      const prompt = `You are a clinical data auditor. Compare the "Submitted Data" against the "Target Persona" exactly.
 
 Target Persona:
 ${JSON.stringify(persona, null, 2)}
@@ -24,28 +23,31 @@ ${JSON.stringify(persona, null, 2)}
 Submitted Data:
 ${JSON.stringify(submittedData, null, 2)}
 
-VERIFICATION CRITERIA (Total 9 Fields):
-1. name: Must match exactly.
-2. dob: Must match exactly (YYYY-MM-DD).
-3. sex: Must match exactly.
-4. reasonForVisit: Key symptoms/complaint must match. 
-5. duration: Timeframe must match exactly.
-6. painLevel: Must match exactly (1-10).
-7. medications: Must match exactly.
-8. allergies: Must match exactly.
-9. familyHistory: Key details must match.
+SCORING RULES (Check these 9 fields):
+1. name
+2. dob
+3. sex
+4. reasonForVisit
+5. duration
+6. painLevel
+7. medications
+8. allergies
+9. familyHistory
 
-RULES:
-- A field is an ERROR if it is: Missing, Factually Different, or Contradictory.
-- Minor typos are okay, but different dates, names, or symptoms are NOT okay.
-- If the Submitted Data is a "chatbot summary", look for the presence of these facts in the text.
+For EACH field, if the Submitted Data is different from the Target Persona, it is 1 Error Point.
+- Missing field = 1 Error Point
+- Wrong name/date/value = 1 Error Point
+- Typo in symptoms = 0 Error Points (be lenient on spelling only)
 
 TASK:
-Calculate the Error Rate as: (Number of Incorrect/Missing Fields / 9) * 100.
-Return ONLY a JSON object:
+1. List each of the 9 fields and specify "OK" or "ERROR".
+2. Sum the error points.
+3. Calculate errorRatePercent = (Points / 9) * 100.
+
+Return ONLY this JSON:
 {
   "errorRatePercent": [number],
-  "details": "[List exactly which fields were wrong and why]"
+  "details": "[List only the fields that were errors and why]"
 }`;
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {

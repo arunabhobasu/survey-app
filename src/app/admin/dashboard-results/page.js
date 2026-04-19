@@ -293,9 +293,16 @@ export default function AdminDashboard() {
                   {studyIds.map(sid => (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid].traditional?.errorRatePercent ?? '-'}%</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid].chatbot?.errorRatePercent ?? '-'}%</td>
-                      <td style={{ padding: '1rem' }}>{studies[sid]['ai-enhanced']?.errorRatePercent ?? '-'}%</td>
+                      {['traditional', 'chatbot', 'ai-enhanced'].map(intName => {
+                        const entry = studies[sid][intName];
+                        return (
+                          <td key={intName} style={{ padding: '1rem' }}>
+                            <div title={entry?.details || "No analysis details"}>
+                              {entry?.errorRatePercent !== undefined ? `${entry.errorRatePercent.toFixed(1)}%` : '-'}
+                            </div>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
