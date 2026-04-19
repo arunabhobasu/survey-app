@@ -322,8 +322,8 @@ export default function AdminDashboard() {
               <tbody>
                 {studyIds.map(sid => {
                   const post = studies[sid]['post-survey']?.responses;
-                  if (!post) return null;
-                  const feedback = post.highlightedFeedback || post.openEndedFeedback || "No feedback provided.";
+                  if (!post || (!post.highlightedFeedback && !post.openEndedFeedback)) return null;
+                  const feedback = post.highlightedFeedback || post.openEndedFeedback;
                   return (
                     <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '1rem', width: '200px', fontWeight: 600, fontFamily: 'monospace', color: 'var(--primary)' }}>{sid}</td>
