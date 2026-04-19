@@ -15,39 +15,46 @@ export async function POST(req) {
 
       if (!persona) return Response.json({ error: 'Persona not found' }, { status: 404 });
 
-      const prompt = `You are a clinical data auditor. Compare the "Submitted Data" against the "Target Persona" exactly.
+      const prompt = `CRITICAL AUDIT TASK: Compare "Submitted Data" against "Target Persona". 
+You are a paranoid medical auditor. You MUST find any factual discrepancies.
 
-Target Persona:
+TARGET PERSONA:
 ${JSON.stringify(persona, null, 2)}
 
-Submitted Data:
+SUBMITTED DATA:
 ${JSON.stringify(submittedData, null, 2)}
 
-SCORING RULES (Check these 9 fields):
-1. name
-2. dob
-3. sex
-4. reasonForVisit
-5. duration
-6. painLevel
-7. medications
-8. allergies
-9. familyHistory
+AUDIT STEPS:
+1. Compare "name": Do they match exactly? (Ignore casing/punctuation)
+2. Compare "dob": Is the date identical?
+3. Compare "sex": Is it the same?
+4. Compare "reasonForVisit": Are the symptoms/complaints factually the same?
+5. Compare "duration": Is the timeframe identical?
+6. Compare "painLevel": Is the number identical?
+7. Compare "medications": Are the drug names and dosages the same?
+8. Compare "allergies": Are the allergies identical?
+9. Compare "familyHistory": Are the family medical details identical?
 
-For EACH field, if the Submitted Data is different from the Target Persona, it is 1 Error Point.
-- Missing field = 1 Error Point
-- Wrong name/date/value = 1 Error Point
-- Typo in symptoms = 0 Error Points (be lenient on spelling only)
-
-TASK:
-1. List each of the 9 fields and specify "OK" or "ERROR".
-2. Sum the error points.
-3. Calculate errorRatePercent = (Points / 9) * 100.
+SCORING:
+- Each field is worth 1 point. 
+- If a field is missing or different, it is 0 points.
+- If it is a perfect match, it is 1 point.
 
 Return ONLY this JSON:
 {
-  "errorRatePercent": [number],
-  "details": "[List only the fields that were errors and why]"
+  "scorecard": {
+    "name": "MATCH or MISMATCH",
+    "dob": "MATCH or MISMATCH",
+    "sex": "MATCH or MISMATCH",
+    "reasonForVisit": "MATCH or MISMATCH",
+    "duration": "MATCH or MISMATCH",
+    "painLevel": "MATCH or MISMATCH",
+    "medications": "MATCH or MISMATCH",
+    "allergies": "MATCH or MISMATCH",
+    "familyHistory": "MATCH or MISMATCH"
+  },
+  "errorRatePercent": [Calculated as: (Mismatches / 9) * 100],
+  "details": "[Briefly list why each mismatch occurred]"
 }`;
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
