@@ -39,8 +39,10 @@ export default function ChatbotInterface() {
     setIsLoading(true);
 
     try {
+      // Claude uses 'assistant' role (not 'model' like Gemini).
+      // We also pass the full history so Claude has full context.
       const apiHistory = newMessages.slice(0, -1).map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
+        role: m.role === 'assistant' ? 'assistant' : 'user',
         content: m.content
       }));
 

@@ -1,96 +1,100 @@
-const systemPrompt = `You are a professional Clinical Intake Assistant. 
-Your goal is to collect patient information for a medical visit. 
-You must collect the following information: Name, Date of Birth, Gender at Birth, Primary Reason for Visit, Symptom Duration, Pain Level (0-10), Current Medications, Known Allergies, and Family Medical History.
+const systemPrompt = `You are ChanseyBOT, a professional Clinical Intake Assistant for a medical clinic.
+Your goal is to collect patient information ONE question at a time.
 
-RULES:
-1. Ask EXACTLY one question at a time. Do not bundle questions (e.g., do not ask for Name and DOB in the same message).
-2. Use the term "Gender at Birth" when asking about sex.
-3. Be professional but empathetic.
+You MUST collect these fields in order:
+1. Full Name
+2. Date of Birth
+3. Gender at Birth
+4. Primary Reason for Visit
+5. Symptom Duration
+6. Pain Level (a number from 0 to 10)
+7. Current Medications (or "None")
+8. Known Allergies (or "None")
+9. Family Medical History (or "None known")
 
-VALIDATION:
-- If a user provides an invalid Date of Birth (e.g., in the future or a nonsensical date), politely ask for a correction.
-- If the Pain Level is not between 0 and 10, ask the user to choose a number within that range.
-- If an answer is vague or nonsensical (e.g., "I don't know" for Name), clarify that the information is required for the clinical intake.
-- If the user provides a very short/unclear "Primary Reason for Visit," ask for a bit more detail (e.g., "Could you describe the pain/symptoms a bit more?").
+STRICT RULES:
+- Ask EXACTLY one question per message. Never bundle two questions together.
+- Use the exact term "Gender at Birth" (not biological sex).
+- Be professional, warm, and empathetic.
 
-CRITICAL GUARDRAILS:
-1. You may ONLY discuss topics related to clinical intake, medical conditions, symptoms, and health history.
-2. If the user asks you to write code, tell a joke, explain politics, or anything unrelated, you MUST reply with exactly: "I'm sorry, I cannot help you with that. My role is strictly to assist with your clinical intake. Let's return to your medical information. [Ask the next pending question]."
-4. Once you have collected ALL required information, summarize it in a clear, vertical bulleted list (one item per line) and then say exactly: "INTAKE_COMPLETE. Thank you."
-`;
+VALIDATION (handle these gracefully, do NOT crash or give up):
+- If the Date of Birth is in the future or clearly invalid, politely say so and ask again.
+- If the Pain Level is not a number between 0 and 10, ask them to provide a valid number.
+- If an answer is vague (e.g., "idk", "asdf"), politely explain what is needed and ask again.
+- If the user goes off-topic, redirect them: "I'm here specifically to help with your clinical intake. [repeat current question]."
+
+COMPLETION:
+Once you have collected ALL 9 fields, present a clear summary formatted exactly like this:
+
+Here is a summary of your information:
+• Name: [value]
+• Date of Birth: [value]
+• Gender at Birth: [value]
+• Primary Reason for Visit: [value]
+• Symptom Duration: [value]
+• Pain Level: [value]/10
+• Current Medications: [value]
+• Known Allergies: [value]
+• Family Medical History: [value]
+
+INTAKE_COMPLETE. Thank you.`;
 
 export async function POST(req) {
   try {
     const { history, message } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
 
-    // Construct history for Gemini API
-    const rawContents = (history || [])
-      .map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.content }]
+    if (!apiKey) {
+      return Response.json({ error: 'ANTHROPIC_API_KEY is not configured.' }, { status: 500 });
+    }
+
+    // Build messages array for Claude. Claude uses 'user' and 'assistant' roles.
+    // Filter out any error messages from the UI to keep the history clean.
+    const messages = (history || [])
+      .filter(m => !m.content?.startsWith('Sorry,') && !m.content?.startsWith('You are speaking'))
+      .map(m => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content
       }));
 
-    rawContents.push({
-      role: 'user',
-      parts: [{ text: message }]
-    });
+    // Add the new user message
+    messages.push({ role: 'user', content: message });
 
-    // Gemini strictly requires alternating user/model roles starting with user.
-    // If the UI state gets corrupted (e.g., two "Sorry..." errors in a row), Gemini throws a 400 error.
-    const contents = [];
-    let expectedRole = 'user';
-    
-    for (const msg of rawContents) {
-      if (msg.role === expectedRole) {
-        contents.push(msg);
-        expectedRole = expectedRole === 'user' ? 'model' : 'user';
-      } else if (contents.length > 0) {
-        // If we get an unexpected role (like two users in a row), we append the text to the last message of the same role
-        // OR we just skip the broken message to keep the sequence valid.
-        if (msg.role === contents[contents.length - 1].role) {
-           contents[contents.length - 1].parts[0].text += `\n\n${msg.parts[0].text}`;
-        }
-      }
-    }
-
-    // If somehow it still starts with a model, remove it
-    if (contents.length > 0 && contents[0].role === 'model') {
-      contents.shift();
-    }
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-
-    const res = await fetch(url, {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
-        contents,
-        system_instruction: {
-          parts: [{ text: systemPrompt }]
-        }
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages
       })
     });
 
     const data = await res.json();
 
-    if (data.error) {
-      console.error("Gemini API Error:", data.error);
-      return Response.json({ error: data.error.message }, { status: data.error.code || 500 });
+    if (!res.ok) {
+      console.error('Anthropic API Error:', data.error);
+      const status = res.status;
+      if (status === 429) {
+        return Response.json({ error: 'Rate limited. Please wait a moment and try again.' }, { status: 429 });
+      }
+      return Response.json({ error: data.error?.message || 'Claude API Error' }, { status });
     }
 
-    const candidate = data.candidates?.[0];
-    
-    if (candidate?.finishReason === "SAFETY") {
-      console.warn("Gemini response was blocked by SAFETY filters.");
-      return Response.json({ text: "I'm sorry, my safety filters blocked that response. Could you please rephrase or provide a different answer?" });
+    const text = data.content?.[0]?.text;
+    if (!text) {
+      return Response.json({ error: 'Empty response from Claude.' }, { status: 500 });
     }
 
-    const text = candidate?.content?.parts?.[0]?.text || "No response.";
     return Response.json({ text });
 
   } catch (error) {
-    console.error("Chat API Internal Error:", error);
-    return Response.json({ error: "Failed to connect to AI service" }, { status: 500 });
+    console.error('Chat API Internal Error:', error);
+    return Response.json({ error: 'Internal server error.' }, { status: 500 });
   }
 }
