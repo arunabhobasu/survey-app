@@ -53,10 +53,13 @@ export default function ChatbotInterface() {
       });
 
       if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error("You are speaking too fast! The AI is rate-limited. Please wait 60 seconds and try again.");
-        }
-        throw new Error("API Connection Failed.");
+        // Try to get the real error from the server response body
+        let errMsg = `API Error (${res.status})`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
