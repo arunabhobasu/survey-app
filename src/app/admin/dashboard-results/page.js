@@ -186,15 +186,52 @@ export default function AdminDashboard() {
           <h1 style={{ fontSize: '2.25rem', fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.025em' }}>Researcher Dashboard</h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Clinical Intake Study • High-Fidelity Data Analysis</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={handleWipeDatabase} className="btn" style={{ backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
-            🗑️ Wipe Entire Database
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={handleWipeDatabase} 
+            className="btn" 
+            style={{ 
+              backgroundColor: '#ef4444', 
+              color: 'white', 
+              border: 'none', 
+              fontSize: '0.75rem', 
+              padding: '0.4rem 1rem', 
+              borderRadius: '2rem',
+              fontWeight: 600
+            }}
+          >
+            Wipe
           </button>
-          <button onClick={runAIAnalysis} disabled={isProcessingAI} className="btn" style={{ backgroundColor: 'var(--accent)', color: 'white', border: 'none' }}>
-            {isProcessingAI ? 'AI Analyzing...' : '✨ Run AI Analysis'}
+          <button 
+            onClick={runAIAnalysis} 
+            disabled={isProcessingAI} 
+            className="btn" 
+            style={{ 
+              backgroundColor: 'var(--accent)', 
+              color: 'white', 
+              border: 'none', 
+              fontSize: '0.75rem', 
+              padding: '0.4rem 1rem', 
+              borderRadius: '2rem',
+              fontWeight: 600
+            }}
+          >
+            {isProcessingAI ? 'Analyzing...' : 'Analyze'}
           </button>
-          <button onClick={exportToExcel} className="btn" style={{ backgroundColor: '#10b981', color: 'white', border: 'none' }}>
-            📥 Export Excel (Multi-Sheet)
+          <button 
+            onClick={exportToExcel} 
+            className="btn" 
+            style={{ 
+              backgroundColor: '#10b981', 
+              color: 'white', 
+              border: 'none', 
+              fontSize: '0.75rem', 
+              padding: '0.4rem 1rem', 
+              borderRadius: '2rem',
+              fontWeight: 600
+            }}
+          >
+            Export
           </button>
         </div>
       </div>
