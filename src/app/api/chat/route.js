@@ -50,7 +50,13 @@ export async function POST(req) {
         contents,
         system_instruction: {
           parts: [{ text: systemPrompt }]
-        }
+        },
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+        ]
       })
     });
 
@@ -61,7 +67,14 @@ export async function POST(req) {
       return Response.json({ error: data.error.message }, { status: data.error.code || 500 });
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+    const candidate = data.candidates?.[0];
+    
+    if (candidate?.finishReason === "SAFETY") {
+      console.warn("Gemini response was blocked by SAFETY filters.");
+      return Response.json({ text: "I'm sorry, my safety filters blocked that response. Could you please rephrase or provide a different answer?" });
+    }
+
+    const text = candidate?.content?.parts?.[0]?.text || "No response.";
     return Response.json({ text });
 
   } catch (error) {
