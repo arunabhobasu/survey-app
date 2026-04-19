@@ -185,22 +185,6 @@ export default function ChatbotInterface() {
           >
             ↑
           </button>
-          <button 
-            type="button" 
-            onClick={() => setIsComplete(true)}
-            style={{
-              backgroundColor: 'var(--card-bg)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-muted)',
-              borderRadius: '0.5rem',
-              padding: '0.25rem 0.5rem',
-              fontSize: '0.7rem',
-              marginLeft: '0.25rem'
-            }}
-            title="Force Complete (Local Testing)"
-          >
-            Force Next
-          </button>
         </form>
       ) : (
         <div style={{
