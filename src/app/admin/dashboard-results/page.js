@@ -38,6 +38,26 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleWipeDatabase = async () => {
+    if (!confirm("⚠️ NUCLEAR OPTION: Are you sure you want to delete EVERY SINGLE record in the entire database? This will wipe all participant data forever.")) return;
+    if (!confirm("FINAL CONFIRMATION: Are you absolutely sure? This cannot be undone.")) return;
+
+    setIsProcessingAI(true); // Reuse loading state
+    try {
+      const snap = await getDocs(collection(db, 'survey_responses'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      
+      setStudies({});
+      alert("Database wiped successfully. You now have a blank slate.");
+    } catch (error) {
+      alert("Wipe failed: " + error.message);
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
+
   const handleDelete = async (sid, data) => {
     const name = data.traditional?.formData?.name || data.chatbot?.formData?.name || data['ai-enhanced']?.formData?.name || "this participant";
     if (!confirm(`Are you sure you want to delete ALL data for ${name}? This will remove them from ALL tables (Individual, Quantitative, and Qualitative).`)) return;
@@ -167,6 +187,9 @@ export default function AdminDashboard() {
           <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Clinical Intake Study • High-Fidelity Data Analysis</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={handleWipeDatabase} className="btn" style={{ backgroundColor: '#ef4444', color: 'white', border: 'none' }}>
+            🗑️ Wipe Entire Database
+          </button>
           <button onClick={runAIAnalysis} disabled={isProcessingAI} className="btn" style={{ backgroundColor: 'var(--accent)', color: 'white', border: 'none' }}>
             {isProcessingAI ? 'AI Analyzing...' : '✨ Run AI Analysis'}
           </button>
