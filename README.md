@@ -1,4 +1,4 @@
-# HCI Clinical Intake Survey Platform
+# Data Entry Interface Survey
 
 This is a research-focused clinical intake platform built for the **CAP5100** HCI coursework. It compares three different patient intake interfaces:
 1. **Traditional Form**: A standard digital form with input fields and dropdowns.
