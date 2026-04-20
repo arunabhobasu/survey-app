@@ -133,7 +133,6 @@ export default function AdminDashboard() {
             <thead style={{ backgroundColor: 'color-mix(in srgb, var(--background) 50%, var(--card-bg))', borderBottom: '1px solid var(--border)' }}>
               <tr>
                 <th style={{ padding: '1rem' }}>Study ID</th>
-                <th style={{ padding: '1rem' }}>Name</th>
                 <th style={{ padding: '1rem' }}>Registration Date</th>
                 <th style={{ padding: '1rem' }}>Progress</th>
                 <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
@@ -146,7 +145,6 @@ export default function AdminDashboard() {
                 return (
                   <tr key={sid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
-                    <td style={{ padding: '1rem' }}>{main.formData?.name || "Anonymous"}</td>
                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{main.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
                     <td style={{ padding: '1rem', fontWeight: 700, fontSize: '0.75rem' }}>{count}/3 Steps</td>
                     <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; const batch = writeBatch(db); Object.values(studies[sid]).forEach(e => batch.delete(doc(db, 'survey_responses', e.id))); await batch.commit(); fetchData(); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button></td>
