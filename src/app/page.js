@@ -19,7 +19,7 @@ export default function LandingPage() {
         </p>
 
         <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontWeight: 500 }}>
-          Estimated Time to Complete ~ 5 mins
+          Estimated Time to Complete ~ 7 mins
         </p>
 
         <div>
