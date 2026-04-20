@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '../../../lib/firebase';
-import { collection, getDocs, query, orderBy, deleteDoc, doc, where, writeBatch, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, where, writeBatch, updateDoc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 
 export default function AdminDashboard() {
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                     <td style={{ padding: '1rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{sid}</td>
                     <td style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{main.timestamp?.toDate().toLocaleString() || 'N/A'}</td>
                     <td style={{ padding: '1rem', fontWeight: 700, fontSize: '0.75rem' }}>{count}/3 Steps</td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; const batch = writeBatch(db); Object.values(studies[sid]).forEach(e => batch.delete(doc(db, 'survey_responses', e.id))); await batch.commit(); fetchData(); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button></td>
+                    <td style={{ padding: '1rem', textAlign: 'right' }}><button onClick={async () => { if(!confirm("Delete?")) return; try { const snap = await getDocs(query(collection(db, 'survey_responses'), where('studyId', '==', sid))); const batch = writeBatch(db); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); await fetchData(); } catch(err) { console.error(err); alert("Delete failed: " + err.message); } }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Delete</button></td>
                   </tr>
                 );
               })}
