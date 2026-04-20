@@ -27,6 +27,10 @@ export default function LandingPage() {
             Begin Survey
           </Link>
         </div>
+
+        <p style={{ marginTop: '1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          This survey must be taken on a laptop or desktop computer.
+        </p>
       </div>
     </div>
   );
