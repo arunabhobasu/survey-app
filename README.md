@@ -7,8 +7,9 @@ This is a research-focused clinical intake platform built for the **CAP5100** HC
 
 ## Tech Stack
 - **Framework**: Next.js 16 (App Router)
-- **AI Engine**: Google Gemini 1.5 Flash (via Direct API)
+- **AI Engine**: Anthropic Claude Haiku 4.5 (via Direct API)
 - **Database**: Firebase Firestore
+- **Hosting and Deployment**: Vercel (Automated with Github Actions)
 - **Styling**: Vanilla CSS (Modern Dark Mode)
 
 ## Getting Started
