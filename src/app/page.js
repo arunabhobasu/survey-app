@@ -11,7 +11,7 @@ export default function LandingPage() {
     }}>
       <div className="card" style={{ maxWidth: '600px', width: '100%', padding: '3rem 2rem', textAlign: 'center' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.75rem', lineHeight: 1.3 }}>
-          Data Collection Interface Study
+          I test Live in Production!
         </h1>
         <p style={{ fontSize: '1rem', color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
           This study is being performed as part of coursework for<br />
