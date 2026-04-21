@@ -40,7 +40,7 @@ This is a research-focused clinical intake platform built for the **CAP5100** HC
 The application automatically tracks:
 - **Completion Time**: Milliseconds taken per interface.
 - **AI Usage**: Frequency of AI assistance triggers.
-- **Qualitative Feedback**: Ranking, Usability (SUS-lite), and Trust scores.
+- **Qualitative Feedback**: Ranking, Usability, and Trust scores.
 
 ## Deployment
 This project is configured for **Firebase Hosting** or **Vercel**. 
