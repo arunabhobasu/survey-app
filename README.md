@@ -40,7 +40,6 @@ This is a research-focused clinical intake platform built for the **CAP5100** HC
 ## Research Metrics
 The application automatically tracks:
 - **Completion Time**: Milliseconds taken per interface.
-- **AI Usage**: Frequency of AI assistance triggers.
 - **Qualitative Feedback**: Ranking, Usability, and Trust scores.
 
 ## Deployment
