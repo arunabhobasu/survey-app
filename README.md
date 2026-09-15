@@ -4,6 +4,7 @@ This is a research-focused clinical intake platform built for the **CAP5100** HC
 1. **Traditional Form**: A standard digital form with input fields and dropdowns.
 2. **AI Chatbot (ChanseyBOT)**: A conversational AI assistant for clinical intake.
 3. **AI-Enhanced Form**: A traditional form supplemented with real-time AI assistance/clarification.
+
 The Final Evaluation Report is available as PDF.
 
 ## Tech Stack
